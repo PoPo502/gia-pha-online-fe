@@ -8,12 +8,18 @@ import PersonsList from "./pages/PersonsList.jsx";
 import PersonDetail from "./pages/PersonDetail.jsx";
 import PersonTree from "./pages/PersonTree.jsx";
 import Admin from "./pages/Admin.jsx";
+import Preview from "./pages/Preview.jsx";
+import Events from "./pages/Events.jsx";
+import Moderation from "./pages/Moderation.jsx";
+import { DEV_BYPASS_AUTH } from "./dev/devConfig.js";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={DEV_BYPASS_AUTH ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/register" element={DEV_BYPASS_AUTH ? <Navigate to="/" replace /> : <Register />} />
+
+      <Route path="/preview" element={<Preview />} />
 
       <Route
         path="/"
@@ -61,10 +67,30 @@ export default function App() {
       />
 
       <Route
+        path="/events"
+        element={
+          <RequireAuth>
+            <Events />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/moderation"
+        element={
+          <RequireAuth>
+            <RequireRole role="TREE_ADMIN">
+              <Moderation />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      <Route
         path="/admin"
         element={
           <RequireAuth>
-            <RequireRole role="ADMIN">
+            <RequireRole role="SUPER_ADMIN">
               <Admin />
             </RequireRole>
           </RequireAuth>

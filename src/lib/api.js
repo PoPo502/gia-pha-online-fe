@@ -82,5 +82,14 @@ export function unwrap(res) {
     e.details = details;
     throw e;
   }
+
+  // Nếu có meta thì trả về object chứa cả data và meta
+  if (res?.data?.meta) {
+    return {
+      data: res.data.data,
+      meta: res.data.meta
+    };
+  }
+
   return res?.data?.data ?? res?.data;
 }

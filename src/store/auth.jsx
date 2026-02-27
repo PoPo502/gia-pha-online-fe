@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { tokenStore } from "./tokenStore.js";
 import { authService } from "../services/auth.service.js";
 import { usersService } from "../services/users.service.js";
+import { DEV_BYPASS_AUTH, DEV_ME } from "../dev/devConfig.js";
 
 const AuthCtx = createContext(null);
 
@@ -12,6 +13,11 @@ export function AuthProvider({ children }) {
   async function bootstrap() {
     setLoading(true);
     try {
+      // Dev: preview UI without backend/auth
+      if (DEV_BYPASS_AUTH) {
+        setMe(DEV_ME);
+        return;
+      }
       if (!tokenStore.getAccessToken()) {
         setMe(null);
         return;
@@ -37,6 +43,10 @@ export function AuthProvider({ children }) {
       me,
       loading,
       async login(payload) {
+        if (DEV_BYPASS_AUTH) {
+          setMe(DEV_ME);
+          return { accessToken: "dev-token" };
+        }
         const data = await authService.login(payload);
         // kỳ vọng data chứa accessToken
         if (data?.accessToken) tokenStore.setAccessToken(data.accessToken);
@@ -44,12 +54,20 @@ export function AuthProvider({ children }) {
         return data;
       },
       async register(payload) {
+        if (DEV_BYPASS_AUTH) {
+          setMe(DEV_ME);
+          return { accessToken: "dev-token" };
+        }
         const data = await authService.register(payload);
         if (data?.accessToken) tokenStore.setAccessToken(data.accessToken);
         await bootstrap();
         return data;
       },
       async logout() {
+        if (DEV_BYPASS_AUTH) {
+          setMe(DEV_ME); // keep preview mode logged in
+          return;
+        }
         try {
           await authService.logout();
         } finally {
