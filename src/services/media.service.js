@@ -1,16 +1,17 @@
 import { api, unwrap } from "../lib/api.js";
+import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 
-/**
- * Spec:
- * POST /api/media/upload (multipart/form-data)
- * GET /api/media/:id
- * GET /api/media/stream/:id (nếu có)
- */
 export const mediaService = {
   async upload(formData) {
+    if (DEV_BYPASS_AUTH) return { success: true };
     const res = await api.post("/media/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    return unwrap(res);
+  },
+  async list() {
+    if (DEV_BYPASS_AUTH) return [];
+    const res = await api.get("/media");
     return unwrap(res);
   },
   async get(id) {

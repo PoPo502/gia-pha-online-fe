@@ -1,34 +1,32 @@
 import { useState, useEffect } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { CheckCircle, XCircle, Clock, Image as ImageIcon, Video, FileText, AlertCircle } from "lucide-react";
-import { branchesService } from "../services/branches.service.js"; // Giả định dùng chung hoặc BE sẽ bổ sung moderationService
+import { moderationService } from "../services/moderation.service.js";
 
 export default function Moderation() {
     const [activeTab, setActiveTab] = useState("pending");
     const [err, setErr] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // Mock pending items - Hiện tại BE chưa có moderationService rõ rệt trong spec FE đang có
-    const [items, setItems] = useState([
-        {
-            id: 1,
-            type: "post",
-            user: "Hệ thống",
-            time: "Bây giờ",
-            content: "Chào mừng bạn đến với Trạm Kiểm Duyệt. Hiện tại các bài đăng của thành viên sẽ hiển thị tại đây để bạn phê duyệt.",
-            status: "pending"
-        }
-    ]);
+    const [items, setItems] = useState([]);
 
-    async function loadModerationData() {
-        // Chỗ này sẽ load từ API thật khi BE sẵn sàng
-        // Ví dụ: const res = await moderationService.getPending();
+    async function loadData() {
+        setLoading(true);
+        try {
+            const res = await moderationService.getPending();
+            setItems(res || []);
+        } catch (e) {
+            setErr("Lỗi: " + e.message);
+        } finally {
+            setLoading(false);
+        }
     }
+
+    useEffect(() => { loadData(); }, []);
 
     const handleAction = async (id, newStatus) => {
         try {
-            // Logic call API Approve/Reject ở đây
-            // await moderationService.updateStatus(id, newStatus);
+            await moderationService.updateStatus(id, newStatus);
             setItems(items.map(item => item.id === id ? { ...item, status: newStatus } : item));
         } catch (e) {
             setErr("Không thể cập nhật trạng thái: " + e.message);

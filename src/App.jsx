@@ -11,6 +11,9 @@ import Admin from "./pages/Admin.jsx";
 import Preview from "./pages/Preview.jsx";
 import Events from "./pages/Events.jsx";
 import Moderation from "./pages/Moderation.jsx";
+import Media from "./pages/Media.jsx";
+import Profile from "./pages/Profile.jsx";
+import BranchDetail from "./pages/BranchDetail.jsx";
 import { DEV_BYPASS_AUTH } from "./dev/devConfig.js";
 
 export default function App() {
@@ -71,6 +74,33 @@ export default function App() {
         element={
           <RequireAuth>
             <Events />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/media"
+        element={
+          <RequireAuth>
+            <Media />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <Profile />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/branches/:id"
+        element={
+          <RequireAuth>
+            <BranchDetail />
           </RequireAuth>
         }
       />
