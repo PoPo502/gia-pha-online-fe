@@ -13,6 +13,31 @@ export default function Home() {
   const [stats, setStats] = useState({ total: 0 });
   const [todayEvents, setTodayEvents] = useState([]);
 
+  // Post states
+  const [posts, setPosts] = useState([
+    {
+      id: "p1",
+      user: "Nguyễn Ngọc A",
+      avatar: "A",
+      avatarColor: "#8b5cf6",
+      time: "1 giờ trước",
+      content: "Chào mừng mọi người đến với hệ thống Gia phả Online mới!",
+      likes: 12,
+    },
+    {
+      id: "p2",
+      user: "Nguyễn Xuân B",
+      avatar: "X",
+      avatarColor: "#10b981",
+      time: "3 giờ trước",
+      content: "Hôm nay thời tiết thật đẹp để đi thăm mộ tổ.",
+      likes: 5,
+    }
+  ]);
+
+  const [showModal, setShowModal] = useState(false);
+  const [newContent, setNewContent] = useState("");
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -32,6 +57,25 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const handleCreatePost = (e) => {
+    e.preventDefault();
+    if (!newContent.trim()) return;
+
+    const newPost = {
+      id: Date.now().toString(),
+      user: me?.fullName || "Thành viên",
+      avatar: (me?.fullName || "U").charAt(0),
+      avatarColor: "var(--primary)",
+      time: "Vừa xong",
+      content: newContent,
+      likes: 0
+    };
+
+    setPosts([newPost, ...posts]);
+    setNewContent("");
+    setShowModal(false);
+  };
+
   return (
     <>
       <Topbar />
@@ -46,7 +90,11 @@ export default function Home() {
                 <Link to="/search/persons" className="btn" style={{ justifyContent: "flex-start", padding: "10px 16px", background: "rgba(238, 77, 45, 0.04)", border: "none", boxShadow: "none", color: "var(--primary)", fontWeight: 700 }}>
                   <Search size={22} style={{ marginRight: 12 }} /> <span style={{ fontSize: 15 }}>Tìm kiếm</span>
                 </Link>
-                <button className="btn" style={{ justifyContent: "flex-start", padding: "10px 16px", background: "transparent", border: "none", boxShadow: "none" }}>
+                <button
+                  className="btn"
+                  onClick={() => setShowModal(true)}
+                  style={{ justifyContent: "flex-start", padding: "10px 16px", background: "transparent", border: "none", boxShadow: "none" }}
+                >
                   <Edit3 size={22} style={{ marginRight: 12 }} /> <span style={{ fontSize: 15, fontWeight: 500 }}>Bài viết mới</span>
                 </button>
                 <Link to="/events" className="btn" style={{ justifyContent: "flex-start", padding: "10px 16px", background: "transparent", border: "none", boxShadow: "none" }}>
@@ -141,10 +189,10 @@ export default function Home() {
           </div>
 
           {/* Create Post */}
-          <div className="post-input-box">
+          <div className="post-input-box" onClick={() => setShowModal(true)} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", gap: 12 }}>
               <div className="avatar" style={{ width: 40, height: 40 }}>{(me?.fullName || "U").charAt(0)}</div>
-              <div style={{ flex: 1, background: "#f0f2f5", borderRadius: 20, padding: "10px 16px", color: "var(--muted)", cursor: "text" }}>
+              <div style={{ flex: 1, background: "#f0f2f5", borderRadius: 20, padding: "10px 16px", color: "var(--muted)" }}>
                 Bạn đang nghĩ gì?
               </div>
             </div>
@@ -156,58 +204,26 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Post Example: Meta Style */}
-          <div className="post-card">
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-              <div className="avatar" style={{ width: 40, height: 40, background: "#8b5cf6", color: "#fff" }}>A</div>
-              <div>
-                <div style={{ fontWeight: 700 }}>Nguyễn Ngọc A</div>
-                <div className="small">Vừa xong</div>
+          {/* Posts List */}
+          {posts.map(post => (
+            <div key={post.id} className="post-card">
+              <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                <div className="avatar" style={{ width: 40, height: 40, background: post.avatarColor || "#8b5cf6", color: "#fff" }}>
+                  {post.avatar}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{post.user}</div>
+                  <div className="small">{post.time}</div>
+                </div>
               </div>
-            </div>
-            <div style={{ marginBottom: 16 }}>Hello</div>
+              <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
 
-            {/* Feature Tile Image/Card */}
-            <div style={{ background: "#f8f9fa", borderRadius: 12, padding: "60px 20px", textAlign: "center", border: "1px solid var(--border)", marginBottom: 16 }}>
-              <h2 style={{ fontSize: 64, fontWeight: 800, margin: 0, opacity: 0.8 }}>Title</h2>
-              <div style={{ fontSize: 24, marginBottom: 32, color: "var(--muted)" }}>Subtitle</div>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                <button className="btn" style={{ padding: "8px 20px", borderRadius: 4 }}>Button</button>
-                <button className="btn" style={{ padding: "8px 20px", borderRadius: 4, background: "#333", color: "#fff" }}>Button</button>
+              <div style={{ display: "flex", gap: 16, padding: "8px 0", color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><Heart size={20} /> {post.likes}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><MessageSquare size={20} /> Bình luận</div>
               </div>
             </div>
-
-            <div style={{ display: "flex", gap: 16, padding: "8px 0", color: "var(--muted)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><Heart size={20} /> 10</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><MessageSquare size={20} /> Bình luận</div>
-            </div>
-            <hr style={{ margin: "8px 0" }} />
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-              <div className="avatar" style={{ width: 32, height: 32, fontSize: 12 }}>U</div>
-              <div style={{ flex: 1, position: "relative" }}>
-                <input className="input" placeholder="Bình luận..." style={{ borderRadius: 20, background: "#f0f2f5", border: "none" }} />
-                <button style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--primary)" }}>
-                  <Send size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="post-card">
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-              <div className="avatar" style={{ width: 40, height: 40, background: "#10b981", color: "#fff" }}>X</div>
-              <div>
-                <div style={{ fontWeight: 700 }}>Nguyễn Xuân A</div>
-                <div className="small">1 giờ trước</div>
-              </div>
-            </div>
-            <div style={{ marginBottom: 16 }}>Paper scissors rock</div>
-            <div style={{ width: "100%", borderRadius: 12, overflow: "hidden", display: "flex" }}>
-              <div style={{ flex: 1, padding: "12px", background: "#f0f9ff", color: "#0369a1", textAlign: "center", fontWeight: 900, fontSize: 24 }}>ROCK</div>
-              <div style={{ flex: 1, padding: "12px", background: "#fff1f2", color: "#be123c", textAlign: "center", fontWeight: 900, fontSize: 24 }}>PAPER</div>
-              <div style={{ flex: 1, padding: "12px", background: "#fefce8", color: "#a16207", textAlign: "center", fontWeight: 900, fontSize: 24 }}>SCISSORS</div>
-            </div>
-          </div>
+          ))}
         </main>
 
         {/* RIGHT SIDEBAR */}
@@ -250,6 +266,49 @@ export default function Home() {
         </aside>
 
       </div>
+
+      {/* CREATE POST MODAL */}
+      {showModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 1000, backdropFilter: "blur(4px)"
+        }}>
+          <div className="card" style={{ width: 500, padding: 0, borderRadius: 16, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>Tạo bài viết</div>
+              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--muted)" }}>×</button>
+            </div>
+            <form onSubmit={handleCreatePost} style={{ padding: 20 }}>
+              <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                <div className="avatar" style={{ width: 44, height: 44 }}>{(me?.fullName || "U").charAt(0)}</div>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{me?.fullName || "Thành viên"}</div>
+                  <div style={{ fontSize: 12, background: "#f0f2f5", padding: "2px 8px", borderRadius: 4, display: "inline-block", marginTop: 4 }}>Công khai</div>
+                </div>
+              </div>
+              <textarea
+                autoFocus
+                placeholder="Bạn đang nghĩ gì?"
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                style={{
+                  width: "100%", height: 150, border: "none", outline: "none",
+                  fontSize: 18, resize: "none", fontFamily: "inherit"
+                }}
+              />
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={!newContent.trim()}
+                style={{ width: "100%", height: 44, borderRadius: 8, marginTop: 16, fontWeight: 700 }}
+              >
+                Đăng bài
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }
