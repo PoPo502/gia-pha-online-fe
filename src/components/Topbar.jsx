@@ -1,3 +1,4 @@
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth.jsx";
 import { Bell } from "lucide-react";
@@ -7,7 +8,38 @@ export default function Topbar() {
   const nav = useNavigate();
   const loc = useLocation();
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const isAuthPage = loc.pathname === "/login" || loc.pathname === "/register";
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
+
+  const handleAvatarClick = () => {
+    setIsDropdownOpen((prev) => !prev);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setIsDropdownOpen(false);
+    nav("/login"); // Redirect to login after logout
+  };
+
+  const handleProfileClick = () => {
+    nav("/profile"); // Navigate to profile page
+    setIsDropdownOpen(false);
+  };
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -48,19 +80,83 @@ export default function Topbar() {
               </button>
 
               {(me.role === "SUPER_ADMIN" || me.role === "TREE_ADMIN") && (
-                <Link to="/admin" className="btn" style={{ background: "var(--accent)", color: "#fff", fontWeight: 800, borderRadius: 10, border: "none", padding: "8px 22px", boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)" }}>
+                <Link
+                  to={me.role === "SUPER_ADMIN" ? "/admin" : "/moderation"}
+                  className="btn"
+                  style={{ background: "var(--accent)", color: "#fff", fontWeight: 800, borderRadius: 10, border: "none", padding: "8px 22px", boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)" }}
+                >
                   ADMIN
                 </Link>
               )}
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#f8f9fa", padding: "4px 4px 4px 16px", borderRadius: 30, border: "1px solid var(--border)" }}>
-                <div style={{ textAlign: "right", lineHeight: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-dark)" }}>{me.fullName || me.name || "User"}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{me.role === "SUPER_ADMIN" ? "Hệ thống" : me.role === "TREE_ADMIN" ? "Quản trị" : "Thành viên"}</div>
-                </div>
-                <div className="avatar" style={{ width: 36, height: 36, fontSize: 15, background: "linear-gradient(135deg, var(--primary), var(--accent))", color: "#fff", border: "2px solid #fff" }}>
-                  {(me.fullName || me.name || "U").charAt(0).toUpperCase()}
-                </div>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={handleAvatarClick}
+                  className="btn"
+                  style={{ background: "none", border: "none", padding: 0, boxShadow: "none", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                >
+                  <div style={{ textAlign: "right", lineHeight: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-dark)" }}>{me.fullName || me.name || "User"}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{me.role === "SUPER_ADMIN" ? "Hệ thống" : me.role === "TREE_ADMIN" ? "Quản trị" : "Thành viên"}</div>
+                  </div>
+                  <div className="avatar" style={{ width: 36, height: 36, fontSize: 15, background: "linear-gradient(135deg, var(--primary), var(--accent))", color: "#fff", border: "2px solid #fff" }}>
+                    {(me.fullName || me.name || "U").charAt(0).toUpperCase()}
+                  </div>
+                </button>
+
+                {isDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 10px)",
+                      right: 0,
+                      background: "#fff",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      zIndex: 100,
+                      minWidth: 160,
+                      padding: "8px 0",
+                    }}
+                  >
+                    <button
+                      onClick={handleProfileClick}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "10px 16px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        color: "var(--text-dark)",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--light)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      Hồ sơ
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "10px 16px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        color: "var(--danger)",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--light)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
