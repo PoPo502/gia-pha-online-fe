@@ -1,13 +1,18 @@
 /* src/components/FamilyTree.css */
 .family-tree-container {
-    display: flex;
-    justify-content: center;
-    overflow-x: auto;
+    display: block; 
+    text-align: center; 
+    overflow-x: auto; /* Cho phép cuộn ngang */
+    overflow-y: hidden;
     padding: 40px 20px;
+    width: 100%;
 }
 
 .family-tree {
+    display: inline-block; 
     white-space: nowrap;
+    min-width: min-content; 
+    margin: 0 auto;
 }
 
 .family-tree ul {

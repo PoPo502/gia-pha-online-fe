@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { personsService } from "../services/persons.service.js";
+import { relationshipsService } from "../services/relationships.service.js"; // THÊM DÒNG NÀY
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 import { useAuth } from "../store/auth.jsx";
 import { Plus, User, Trash2, Edit, Download, Image as ImageIcon, FileText } from "lucide-react";
@@ -11,27 +12,75 @@ import jsPDF from "jspdf";
 
 function Node({ node, onNodeClick }) {
   if (!node) return null;
-  const children = node.children || node.descendants || [];
+  const children = node.children || [];
   const spouses = node.spouses || [];
+
+  // Tạo 1 hàm render chung để giao diện của Người Chính và Vợ/Chồng giống y hệt nhau
+  const renderCard = (person) => (
+    <div 
+      className="tree-node-card" 
+      // Sửa 1: Cho phép click chuột trái ở bất cứ đâu trên thẻ để hiện Menu
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        onNodeClick(e, person); 
+      }}
+      // Sửa 2: Chặn menu chuột phải mặc định và hiện Menu của mình
+      onContextMenu={(e) => {
+        e.preventDefault(); // Chặn cái menu trắng của trình duyệt
+        e.stopPropagation();
+        onNodeClick(e, person); // Hiện menu của mình
+      }}
+      style={{ 
+        borderRadius: 12, 
+        border: "2px solid #fff", 
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        minWidth: 140,
+        minHeight: 120,
+        display: "flex", 
+        flexDirection: "column", 
+        justifyContent: "center",
+        alignItems: "center", // Căn giữa nội dung
+        background: "var(--surface-solid)",
+        cursor: "pointer",
+        padding: "10px"
+      }}
+    >
+      {/* ... giữ nguyên phần avatar và name bên trong ... */}
+      <div className="tree-node-avatar" style={{ 
+          background: (person.gender === 'female' ? "rgba(236,72,153,0.1)" : "var(--primary-light)"), 
+          color: (person.gender === 'female' ? "#db2777" : "var(--primary)"), 
+          borderColor: "#fff",
+          marginBottom: "8px"
+      }}>
+        {(person.fullName || person.name || "U").charAt(0).toUpperCase()}
+      </div>
+      <div className="tree-node-name" style={{ fontWeight: 800, fontSize: "0.9rem", textAlign: "center" }}>
+        {person.fullName || person.name || "Chưa xác định"}
+      </div>
+      {/* ... phần năm sinh giữ nguyên ... */}
+    </div>
+  );
 
   return (
     <li>
-      <div className="tree-node-wrapper">
-        <div className="tree-node-card" onClick={(e) => onNodeClick(e, node)} style={{ borderRadius: 12, border: "2px solid #fff", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
-          <div className="tree-node-avatar" style={{ background: (node.gender === 'female' ? "rgba(236,72,153,0.1)" : "var(--primary-light)"), color: (node.gender === 'female' ? "#db2777" : "var(--primary)"), borderColor: "#fff" }}>
-            {(node.fullName || node.name || "U").charAt(0).toUpperCase()}
+      {/* Wrapper dùng flex để xếp các thẻ nằm ngang cạnh nhau */}
+      <div className="tree-node-wrapper" style={{ display: "flex", gap: 0, justifyContent: "center" }}>
+        
+        {/* Render thẻ Bản thân */}
+        {renderCard(node)}
+
+        {/* Render thẻ Vợ / Chồng (Giống y hệt Bản thân, nằm ngay cạnh) */}
+        {spouses.length > 0 && spouses.map((s, idx) => (
+          <div key={s._id || s.id || idx} style={{ display: "flex", alignItems: "center" }}>
+            {renderCard(s)}
           </div>
-          <div className="tree-node-name" style={{ fontWeight: 800 }}>{node.fullName || node.name || "Chưa xác định"}</div>
-          {(node.dateOfBirth || node.dateOfDeath || node.birthYear || node.deathYear) && (
-            <div className="tree-node-years">
-              {node.dateOfBirth ? new Date(node.dateOfBirth).getFullYear() : (node.birthYear || "?")} - {node.dateOfDeath ? new Date(node.dateOfDeath).getFullYear() : (node.deathYear || "Nay")}
-            </div>
-          )}
-        </div>
+        ))}
+
       </div>
 
+      {/* Render con cái */}
       {children.length > 0 && (
-        <ul>
+        <ul style={{ padding: "20px 0 0 0", margin: 0, display: "flex", justifyContent: "center" }}>
           {children.map((c) => <Node key={c.id || c._id || Math.random()} node={c} onNodeClick={onNodeClick} />)}
         </ul>
       )}
@@ -44,12 +93,13 @@ export default function PersonTree() {
   const nav = useNavigate();
   const { me } = useAuth();
   const [tree, setTree] = useState(null);
-  const [params, setParams] = useState({ depth: 3, includeSpouses: true, format: "nested" });
+  const [params, setParams] = useState({ depth: 3, includeSpouses: true, includeSiblings: true, format: "nested" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
-
+  // const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
+  const roleStr = String(me?.role || "").toLowerCase();
+  const canEdit = roleStr === "admin" || roleStr === "super_admin" || roleStr === "editor" || roleStr === "tree_admin";
   // Tree Element Ref for Export
   const treeRef = useRef(null);
   const [exporting, setExporting] = useState(false);
@@ -61,8 +111,13 @@ export default function PersonTree() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState("root"); // root | relative
   const [targetNode, setTargetNode] = useState(null);
-  const [formData, setFormData] = useState({ name: "", birthYear: "", relation: "child" });
-
+  const [formData, setFormData] = useState({ 
+    fullName: "", 
+    birthYear: "", 
+    gender: "male", 
+    relation: "child",
+    otherParentId: ""
+  });
   async function load(p = params) {
     setErr("");
     setLoading(true);
@@ -106,10 +161,72 @@ export default function PersonTree() {
     });
   };
 
+  
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    alert("Tính năng thêm người đang được xây dựng (Giao diện Offline)!\nDữ liệu: " + JSON.stringify(formData));
-    setShowAddModal(false);
+    try {
+      const branchId = targetNode?.branchId || tree?.branchId;
+      
+      // 1. Tạo người con mới
+      const personPayload = {
+        branchId,
+        fullName: formData.fullName,
+        gender: formData.gender,
+        privacy: "internal",
+      };
+      if (formData.birthYear) personPayload.birthYear = parseInt(formData.birthYear);
+
+      const newPersonRes = await personsService.create(personPayload);
+      const newPersonId = newPersonRes?.data?._id || newPersonRes?._id;
+
+      // 2. Tạo các mối quan hệ
+      if (addMode === "relative" && targetNode) {
+        const targetId = targetNode._id || targetNode.id;
+        
+        // Mối quan hệ 1: Với người được click (Bố/Mẹ đang chọn)
+        let relPayload = { 
+            branchId, 
+            fromPersonId: "", toPersonId: "", 
+            type: formData.relation === "spouse" ? "spouse_of" : "parent_of" 
+        };
+
+        if (formData.relation === "child") {
+          relPayload.fromPersonId = targetId; 
+          relPayload.toPersonId = newPersonId;
+        } else if (formData.relation === "parent") {
+          relPayload.fromPersonId = newPersonId; 
+          relPayload.toPersonId = targetId;
+        } else {
+          relPayload.fromPersonId = targetId; 
+          relPayload.toPersonId = newPersonId;
+        }
+        await relationshipsService.create(relPayload);
+
+        // Mối quan hệ 2: Với Vợ/Chồng còn lại (Nếu là thêm Con và có chọn OtherParent)
+        if (formData.relation === "child" && formData.otherParentId) {
+          await relationshipsService.create({
+            branchId,
+            type: "parent_of",
+            fromPersonId: formData.otherParentId,
+            toPersonId: newPersonId
+          });
+        }
+      }
+
+      // 3. Hoàn tất và Reload
+      setShowAddModal(false);
+      setFormData({ fullName: "", birthYear: "", gender: "male", relation: "child", otherParentId: "" });
+      
+      // Nếu thêm đời trên thì đổi gốc cây, đời dưới thì giữ nguyên
+      if (formData.relation === "parent") {
+          nav(`/persons/${newPersonId}/tree`);
+      } else {
+          load(params); 
+      }
+      
+    } catch (err) {
+      alert("Lỗi khi thêm: " + (err.response?.data?.error?.message || err.message));
+    }
   };
 
   const exportImage = async () => {
@@ -152,7 +269,9 @@ export default function PersonTree() {
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
             <div>
               <div className="title-md">Cây huyết thống interactive</div>
-              <div className="small">Sơ đồ quan hệ gia đình của thành viên {id}</div>
+              <div className="small">
+                Sơ đồ quan hệ gia đình của: <strong style={{ color: "var(--primary)" }}>{tree ? (tree.fullName || tree.name) : "Đang tải..."}</strong>
+              </div>
             </div>
             <div className="row" style={{ gap: 12 }}>
 
@@ -160,7 +279,7 @@ export default function PersonTree() {
                 <button className="btn" disabled={exporting || loading || !tree}>
                   <Download size={18} style={{ marginRight: 8 }} /> {exporting ? "Đang xử lý..." : "Xuất File"}
                 </button>
-                <div className="export-dropdown" style={{ display: "none", position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--surface-solid)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
+                <div className="export-dropdown" style={{ display: "none", position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--surface-solid)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 100, minWidth: 150, overflow: "auto" }}>
                   <button className="btn outline" style={{ width: "100%", borderRadius: 0, border: "none", justifyContent: "flex-start" }} onClick={exportImage}>
                     <ImageIcon size={16} style={{ marginRight: 8 }} /> Lưu ra Ảnh
                   </button>
@@ -208,15 +327,36 @@ export default function PersonTree() {
           <div style={{ position: "relative", marginTop: 24, background: "var(--surface-solid)", padding: 24, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", minHeight: 400, overflow: "hidden" }}>
             {loading && !tree && <div className="small" style={{ textAlign: "center", padding: 40 }}>Đang dựng cây gia phả...</div>}
 
+            {tree && tree.siblings && tree.siblings.length > 0 && (
+                <div style={{ padding: "12px 24px", background: "rgba(246, 145, 19, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div className="small" style={{ fontWeight: 600, color: "var(--accent)" }}>Anh/Chị/Em ruột:</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {tree.siblings.map(sib => (
+                            <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "#fff", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
+                                👥 {sib.fullName || sib.name}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* BẮT ĐẦU: ĐOẠN CODE VẼ CÂY ĐÃ SỬA LẠI */}
             {tree && (
-              <div className="family-tree-container" ref={treeRef} style={{ background: "var(--surface-solid)" }}>
+              <div 
+                className="family-tree-container" 
+                ref={treeRef} 
+                style={{ padding: 20, minWidth: "100%", display: "inline-block", textAlign: "center" }}
+              >
+                {/* CHÍNH LÀ THẺ DIV NÀY BỊ THIẾU NÈ: */}
                 <div className="family-tree">
                   <ul>
-                    <Node node={tree.root || tree} onNodeClick={handleNodeClick} />
+                    <Node node={tree} onNodeClick={handleNodeClick} />
                   </ul>
                 </div>
               </div>
             )}
+            {/* KẾT THÚC: ĐOẠN CODE VẼ CÂY */}
+
           </div>
         </div>
       </div>
@@ -263,29 +403,59 @@ export default function PersonTree() {
             <form onSubmit={handleAddSubmit} className="stack">
               <div>
                 <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Họ và Tên</label>
-                <input required className="input" placeholder="Nhập họ và tên..." value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                <input required className="input" placeholder="Nhập họ và tên..." value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} />
               </div>
 
-              <div className="row">
+              <div className="row" style={{ gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Giới tính</label>
+                  <select className="select" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
+                    <option value="male">Nam</option>
+                    <option value="female">Nữ</option>
+                  </select>
+                </div>
                 <div style={{ flex: 1 }}>
                   <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Năm sinh</label>
-                  <input className="input" type="number" placeholder="YYYY" value={formData.birthYear} onChange={(e) => setFormData({ ...formData, birthYear: e.target.value })} />
+                  <input className="input" type="number" placeholder="VD: 1990" value={formData.birthYear} onChange={(e) => setFormData({ ...formData, birthYear: e.target.value })} />
                 </div>
-                {addMode === "relative" && (
-                  <div style={{ flex: 1 }}>
-                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Mối quan hệ</label>
-                    <select className="select" value={formData.relation} onChange={(e) => setFormData({ ...formData, relation: e.target.value })}>
-                      <option value="parent">Cha / Mẹ</option>
-                      <option value="spouse">Vợ / Chồng</option>
-                      <option value="child">Con cái</option>
-                    </select>
-                  </div>
-                )}
               </div>
+
+              {addMode === "relative" && (
+                <div style={{ marginTop: 16 }}>
+                  <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+                    Mối quan hệ với {targetNode?.fullName || targetNode?.name}
+                  </label>
+                  <select className="select" value={formData.relation} onChange={(e) => setFormData({ ...formData, relation: e.target.value })}>
+                    <option value="child">Là Con cái</option>
+                    <option value="spouse">Là Vợ / Chồng</option>
+                    <option value="parent">Là Cha / Mẹ</option>
+                  </select>
+                </div>
+              )}
+
+              {addMode === "relative" && formData.relation === "child" && targetNode?.spouses?.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+                    Chọn Cha/Mẹ còn lại (Vợ/Chồng của {targetNode.fullName})
+                  </label>
+                  <select 
+                    className="select" 
+                    value={formData.otherParentId} 
+                    onChange={(e) => setFormData({ ...formData, otherParentId: e.target.value })}
+                  >
+                    <option value="">-- Không xác định --</option>
+                    {targetNode.spouses.map(s => (
+                      <option key={s._id || s.id} value={s._id || s.id}>
+                        {s.fullName || s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="row" style={{ marginTop: 24, justifyContent: "flex-end" }}>
                 <button type="button" className="btn" onClick={() => setShowAddModal(false)}>Hủy bỏ</button>
-                <button type="submit" className="btn primary">Xác nhận Lưu</button>
+                <button type="submit" className="btn primary">Xác nhận Thêm</button>
               </div>
             </form>
           </div>

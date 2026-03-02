@@ -6,7 +6,7 @@ import { tokenStore } from "../store/tokenStore.js";
  * Set bằng .env: VITE_API_BASE_URL=http://localhost:3000/api
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
   withCredentials: true,
 });
 
@@ -47,7 +47,7 @@ api.interceptors.response.use(
     try {
       // Spec: POST /api/auth/refresh
       const refreshRes = await axios.post(
-        (import.meta.env.VITE_API_URL || "http://localhost:5000/api") + "/auth/refresh",
+        (import.meta.env.VITE_API_URL || "http://localhost:4000/api") + "/auth/refresh",
         {},
         { withCredentials: true }
       );

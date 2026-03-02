@@ -41,6 +41,10 @@ export default function Topbar() {
     setIsDropdownOpen(false);
   };
 
+  const roleStr = String(me?.role || "").toLowerCase();
+  const isAdmin = roleStr === "admin" || roleStr === "super_admin";
+  const isEditor = roleStr === "editor" || roleStr === "tree_admin";
+
   const getRoleBadge = (role) => {
     switch (role) {
       case "SUPER_ADMIN": return <span className="badge public" style={{ background: "var(--danger)", color: "#fff" }}>HỆ THỐNG</span>;
@@ -79,9 +83,9 @@ export default function Topbar() {
                 <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, background: "var(--danger)", borderRadius: "50%", border: "2px solid #fff" }}></span>
               </button>
 
-              {(me.role === "SUPER_ADMIN" || me.role === "TREE_ADMIN") && (
+              {(isAdmin || isEditor) && (
                 <Link
-                  to={me.role === "SUPER_ADMIN" ? "/admin" : "/moderation"}
+                  to={isAdmin ? "/admin" : "/moderation"}
                   className="btn"
                   style={{ background: "var(--accent)", color: "#fff", fontWeight: 800, borderRadius: 10, border: "none", padding: "8px 22px", boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)" }}
                 >
@@ -97,7 +101,9 @@ export default function Topbar() {
                 >
                   <div style={{ textAlign: "right", lineHeight: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-dark)" }}>{me.fullName || me.name || "User"}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{me.role === "SUPER_ADMIN" ? "Hệ thống" : me.role === "TREE_ADMIN" ? "Quản trị" : "Thành viên"}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
+                        {isAdmin ? "Hệ thống" : isEditor ? "Quản trị" : "Thành viên"}
+                    </div>
                   </div>
                   <div className="avatar" style={{ width: 36, height: 36, fontSize: 15, background: "linear-gradient(135deg, var(--primary), var(--accent))", color: "#fff", border: "2px solid #fff" }}>
                     {(me.fullName || me.name || "U").charAt(0).toUpperCase()}

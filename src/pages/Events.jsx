@@ -36,6 +36,9 @@ export default function Events() {
         fetchData();
     }, []);
 
+    const [branches, setBranches] = useState([]);
+    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
+
 useEffect(() => {
     (async () => {
         try {
@@ -53,10 +56,6 @@ useEffect(() => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
-
-
-    const [branches, setBranches] = useState([]);
-    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
 
     const handleCreate = async (e) => {
         e.preventDefault();

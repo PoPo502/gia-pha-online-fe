@@ -5,14 +5,15 @@ import HomeUser from "./HomeUser.jsx";
 
 export default function Home() {
   const { me } = useAuth();
-  const role = me?.role || "USER";
+  const role = String(me?.role || "member").toLowerCase();
 
-  switch (role) {
-    case "SUPER_ADMIN":
-      return <HomeSuperAdmin />;
-    case "TREE_ADMIN":
-      return <HomeTreeAdmin />;
-    default:
-      return <HomeUser />;
+  if (role === "admin" || role === "super_admin") {
+    return <HomeSuperAdmin />;
   }
+  
+  if (role === "editor" || role === "tree_admin") {
+    return <HomeTreeAdmin />;
+  }
+
+  return <HomeUser />;
 }

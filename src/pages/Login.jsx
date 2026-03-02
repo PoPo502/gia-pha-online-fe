@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth.jsx";
 import Topbar from "../components/Topbar.jsx";
+import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 
 export default function Login() {
   const { login } = useAuth();
@@ -35,6 +36,30 @@ export default function Login() {
           </div>
 
           <form className="stack" onSubmit={onSubmit}>
+            <div>
+              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Email</div>
+              <input
+                className="input"
+                type="email"
+                placeholder="VD: admin@gp.local"
+                value={form.email}
+                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Mật khẩu</div>
+              <input
+                className="input"
+                placeholder="••••••••"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                required
+              />
+            </div>
+            
             {DEV_BYPASS_AUTH && (
               <div style={{ padding: 16, background: "var(--primary-light)", borderRadius: 12, marginBottom: 16, border: "1px solid var(--primary)" }}>
                 <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 8 }}>CHẾ ĐỘ DEV: CHỌN QUYỀN TRUY CẬP</div>

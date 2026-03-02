@@ -1,7 +1,6 @@
 // Dev helpers to preview UI without backend/auth
 
-export const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === "true";
-
+export const DEV_BYPASS_AUTH = false;
 // Có thể đổi role tĩnh ở đây để test: "SUPER_ADMIN", "TREE_ADMIN", "USER"
 export const DEV_ME = {
   id: "dev-user",

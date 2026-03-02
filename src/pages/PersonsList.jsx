@@ -3,6 +3,7 @@ import Topbar from "../components/Topbar.jsx";
 import { personsService } from "../services/persons.service.js";
 import { Link } from "react-router-dom";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+import { branchesService } from "../services/branches.service.js";
 
 export default function PersonsList() {
   const [items, setItems] = useState([]);
@@ -11,6 +12,7 @@ export default function PersonsList() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [branches, setBranches] = useState([]);
   async function load(p = params) {
     setErr("");
     setLoading(true);
@@ -26,7 +28,20 @@ export default function PersonsList() {
     }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { 
+    (async () => {
+      try {
+        const res = await branchesService.list({ limit: 100 });
+        const list = res?.data || res || [];
+        setBranches(Array.isArray(list) ? list : (list.data || []));
+      } catch (e) {
+        console.error("Không tải được chi nhánh", e);
+      }
+    })();
+    
+    load(); 
+
+  }, []);
 
   return (
     <>
@@ -37,7 +52,7 @@ export default function PersonsList() {
           <div className="small" style={{ marginBottom: 20 }}>Liệt kê danh sách tất cả các thành viên để quản lý dễ dàng.</div>
 
           <div className="filters">
-            <input className="input" style={{ maxWidth: 260 }} placeholder="Mã chi nhánh (Branch ID)..."
+            {/* <input className="input" style={{ maxWidth: 260 }} placeholder="Mã chi nhánh (Branch ID)..."
               value={params.branchId} onChange={(e) => setParams(s => ({ ...s, branchId: e.target.value }))} />
 
             <select className="select" style={{ maxWidth: 200 }} value={params.privacy} onChange={(e) => setParams(s => ({ ...s, privacy: e.target.value }))}>
@@ -45,8 +60,25 @@ export default function PersonsList() {
               <option value="public">Công khai</option>
               <option value="internal">Nội bộ</option>
               <option value="sensitive">Nhạy cảm</option>
+            </select> */}
+            <select 
+              className="select" 
+              style={{ maxWidth: 260 }} 
+              value={params.branchId} 
+              onChange={(e) => setParams(s => ({ ...s, branchId: e.target.value }))}
+            >
+              <option value="">Tất cả chi nhánh</option>
+              {branches.map(b => (
+                <option key={b._id} value={b._id}>{b.name}</option>
+              ))}
             </select>
 
+            <select className="select" style={{ maxWidth: 200 }} value={params.privacy} onChange={(e) => setParams(s => ({ ...s, privacy: e.target.value }))}>
+              <option value="">Tất cả quyền riêng tư</option>
+              <option value="public">Công khai</option>
+              <option value="internal">Nội bộ</option>
+              <option value="sensitive">Nhạy cảm</option>
+            </select>
             <button className="btn primary" onClick={() => load({ ...params, page: 1 })} disabled={loading}>
               {loading ? "Đang lọc..." : "Lọc danh sách"}
             </button>

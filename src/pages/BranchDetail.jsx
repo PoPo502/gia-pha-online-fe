@@ -84,17 +84,35 @@ export default function BranchDetail() {
                                     <tbody>
                                         {members.length === 0 ? (
                                             <tr><td colSpan="3" style={{ textAlign: "center", padding: 20 }}>Chưa có thành viên nào.</td></tr>
-                                        ) : members.map((m) => (
-                                            <tr key={m.id}>
-                                                <td style={{ fontWeight: 600 }}>{m.fullName || m.name || m.userId}</td>
-                                                <td><span className="badge internal">{m.role || "EDITOR"}</span></td>
-                                                <td>
-                                                    <button onClick={() => handleRemoveMember(m.userId || m.id)} style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}>
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        ) : members.map((m, index) => {
+                                            const userObj = m.userId || {}; 
+                                            const uid = userObj._id || userObj;
+                                            
+                                            return (
+                                                <tr key={uid || index}>
+                                                    <td style={{ fontWeight: 600 }}>
+                                                        <div>{userObj.fullName || "Người dùng ẩn"}</div>
+                                                        <div className="small" style={{ color: "var(--muted)", fontWeight: "normal" }}>
+                                                            {userObj.email || ""}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge internal" style={{ textTransform: "uppercase" }}>
+                                                            {m.roleInBranch || "VIEWER"}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button 
+                                                            onClick={() => handleRemoveMember(uid)} 
+                                                            style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}
+                                                            title="Gỡ thành viên"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

@@ -11,16 +11,22 @@ export default function HomeSuperAdmin() {
     const [stats, setStats] = useState({ branches: 0, users: 0, pendingReports: 0 });
     const [loading, setLoading] = useState(true);
     const [health, setHealth] = useState(null);
-
+    const [branchesList, setBranchesList] = useState([]);
     useEffect(() => {
         async function loadSystemStats() {
             try {
-                const [branches, sysHealth] = await Promise.all([
+                // ĐỔI systemService.getHealth() THÀNH systemService.health()
+                const [branchesRes, sysHealth] = await Promise.all([
                     branchesService.list(),
-                    systemService.getHealth()
+                    systemService.health()
                 ]);
+                
+                // Lấy data thật và lưu vào state
+                const fetchedBranches = branchesRes?.data || branchesRes || [];
+                setBranchesList(fetchedBranches);
+
                 setStats({
-                    branches: branches?.length || 0,
+                    branches: fetchedBranches.length || 0,
                     users: 0, // Placeholder for global users
                     pendingReports: 0
                 });
@@ -89,20 +95,26 @@ export default function HomeSuperAdmin() {
                             </div>
 
                             <div className="stack" style={{ gap: 16 }}>
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="row" style={{ padding: 20, background: "#f8f9fa", borderRadius: 16, border: "1px solid #f1f1f1", justifyContent: "space-between" }}>
+                                {/* ĐÃ THAY BẰNG branchesList.map ĐỂ RENDER DATA THẬT */}
+                                {branchesList.map(b => (
+                                    <div key={b._id} className="row" style={{ padding: 20, background: "#f8f9fa", borderRadius: 16, border: "1px solid #f1f1f1", justifyContent: "space-between" }}>
                                         <div className="row" style={{ gap: 20 }}>
                                             <div style={{ width: 52, height: 52, background: "var(--primary-light)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20, color: "var(--primary)" }}>
-                                                {(i === 1 ? "Nguyễn" : i === 2 ? "Trần" : "Lê")[0]}
+                                                {/* Lấy chữ cái đầu tiên của tên */}
+                                                {b.name ? b.name.charAt(0).toUpperCase() : "?"}
                                             </div>
                                             <div>
-                                                <div style={{ fontWeight: 800, fontSize: 18 }}>Họ tộc {i === 1 ? "Nguyễn" : i === 2 ? "Trần" : "Lê"}</div>
-                                                <div className="small" style={{ color: "var(--muted)", marginTop: 4 }}>ID: tree_{i} • 120 thành viên • 4 chi nhánh</div>
+                                                <div style={{ fontWeight: 800, fontSize: 18 }}>{b.name}</div>
+                                                <div className="small" style={{ color: "var(--muted)", marginTop: 4 }}>ID: {b._id} • {b.members?.length || 0} thành viên</div>
                                             </div>
                                         </div>
-                                        <Link to={`/admin/branches/tree_${i}`} className="btn outline small" style={{ borderRadius: 10 }}>Quản lý</Link>
+                                        {/* Đã sửa link sang id thật của database */}
+                                        <Link to={`/admin/branches/${b._id}`} className="btn outline small" style={{ borderRadius: 10 }}>Quản lý</Link>
                                     </div>
                                 ))}
+                                {branchesList.length === 0 && !loading && (
+                                    <div style={{ textAlign: "center", padding: 20, color: "var(--muted)" }}>Chưa có chi nhánh nào.</div>
+                                )}
                             </div>
                         </div>
                     </div>
