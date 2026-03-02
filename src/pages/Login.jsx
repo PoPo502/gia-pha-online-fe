@@ -35,31 +35,25 @@ export default function Login() {
           </div>
 
           <form className="stack" onSubmit={onSubmit}>
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Email hoặc Tên đăng nhập</div>
-              <input
-                className="input"
-                placeholder="VD: user@domain.com"
-                value={form.email}
-                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Mật khẩu</div>
-              <input
-                className="input"
-                placeholder="••••••••"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                required
-              />
-            </div>
+            {DEV_BYPASS_AUTH && (
+              <div style={{ padding: 16, background: "var(--primary-light)", borderRadius: 12, marginBottom: 16, border: "1px solid var(--primary)" }}>
+                <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 8 }}>CHẾ ĐỘ DEV: CHỌN QUYỀN TRUY CẬP</div>
+                <select
+                  className="input"
+                  value={form.role || "SUPER_ADMIN"}
+                  onChange={(e) => setForm(s => ({ ...s, role: e.target.value }))}
+                  style={{ background: "#fff" }}
+                >
+                  <option value="SUPER_ADMIN">Admin Hệ Thống (Toàn quyền)</option>
+                  <option value="TREE_ADMIN">Admin Tree (Kiểm duyệt bài)</option>
+                  <option value="USER">User (Thành viên xem cây)</option>
+                </select>
+                <div className="small" style={{ marginTop: 8, fontSize: 11 }}>Bạn có thể nhập bất kỳ email/pass nào để đăng nhập.</div>
+              </div>
+            )}
 
             <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 14 }}>
-              {loading ? "Đang xử lý..." : "Đăng nhập hệ thống"}
+              {loading ? "Đang xử lý..." : (DEV_BYPASS_AUTH ? "Đăng nhập (Phát triển)" : "Đăng nhập hệ thống")}
             </button>
 
             {err && (

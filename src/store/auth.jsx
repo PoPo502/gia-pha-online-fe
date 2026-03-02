@@ -44,7 +44,10 @@ export function AuthProvider({ children }) {
       loading,
       async login(payload) {
         if (DEV_BYPASS_AUTH) {
-          setMe(DEV_ME);
+          // Cho phép chọn role khi login ở mode bypass
+          const role = payload.role || DEV_ME.role;
+          const fullName = role === "SUPER_ADMIN" ? "Admin Hệ Thống" : (role === "TREE_ADMIN" ? "Quản Trị Viên Nhánh" : "Thành Viên Thường");
+          setMe({ ...DEV_ME, role, fullName });
           return { accessToken: "dev-token" };
         }
         const data = await authService.login(payload);
