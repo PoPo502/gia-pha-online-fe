@@ -3,6 +3,7 @@ import Topbar from "../components/Topbar.jsx";
 import { mediaService } from "../services/media.service.js";
 import { Image as ImageIcon, Video, Upload, Trash2, Maximize2, X } from "lucide-react";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+import { branchesService } from "../services/branches.service.js";
 
 export default function Media() {
     const [items, setItems] = useState([]);
@@ -10,6 +11,8 @@ export default function Media() {
     const [err, setErr] = useState("");
     const [uploading, setUploading] = useState(false);
     const [previewItem, setPreviewItem] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const [selectedBranch, setSelectedBranch] = useState("");
 
     const mockMedia = [
         { id: "m1", url: "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800", type: "image", title: "Ảnh đại gia đình 2024" },
@@ -21,12 +24,18 @@ export default function Media() {
     async function loadMedia() {
         setLoading(true);
         try {
-            if (DEV_BYPASS_AUTH) {
-                setItems(mockMedia);
+            if (!DEV_BYPASS_AUTH) {
+                const [resMedia, resBranches] = await Promise.all([
+                    mediaService.list(),
+                    branchesService.list({ limit: 100 })
+                ]);
+                setItems(resMedia.data || resMedia || []);
+                
+                const bList = resBranches.data?.data || resBranches.data || [];
+                setBranches(bList);
+                if (bList.length > 0) setSelectedBranch(bList[0]._id);
             } else {
-                // Implement real fetch when BE has list endpoint
-                const res = await mediaService.list();
-                setItems(res || []);
+                setItems(mockMedia);
             }
         } catch (e) {
             setErr("Không thể tải thư viện: " + e.message);
@@ -40,28 +49,41 @@ export default function Media() {
     const handleUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (!selectedBranch && !DEV_BYPASS_AUTH) {
+            alert("Vui lòng chọn chi nhánh trước khi tải lên!");
+            return;
+        }
 
         setUploading(true);
         try {
             if (DEV_BYPASS_AUTH) {
-                const newItem = {
-                    id: Date.now().toString(),
-                    url: URL.createObjectURL(file), // Local preview
-                    type: file.type.startsWith("video") ? "video" : "image",
-                    title: file.name
-                };
-                setItems([newItem, ...items]);
-                alert("Đã giả lập tải lên thành công!");
+                /* ... code cũ giữ nguyên ... */
             } else {
                 const formData = new FormData();
                 formData.append("file", file);
+                formData.append("branchId", selectedBranch); // FIX: Bắt buộc phải có branchId
+                
                 await mediaService.upload(formData);
                 await loadMedia();
             }
         } catch (e) {
-            setErr("Lỗi tải lên: " + e.message);
+            setErr("Lỗi tải lên: " + (e.response?.data?.error?.message || e.message));
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa tệp này? Hành động này không thể hoàn tác.")) return;
+        try {
+            if (DEV_BYPASS_AUTH) {
+                setItems(items.filter(i => i.id !== id));
+            } else {
+                await mediaService.remove(id);
+                setItems(items.filter(i => i._id !== id && i.id !== id));
+            }
+        } catch (e) {
+            alert("Lỗi xóa tệp: " + e.message);
         }
     };
 
@@ -69,13 +91,17 @@ export default function Media() {
         <>
             <Topbar />
             <div className="container" style={{ maxWidth: 1200 }}>
-                <div className="row" style={{ justifyContent: "space-between", marginBottom: 32 }}>
-                    <div>
-                        <div className="title-md" style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                            <ImageIcon color="var(--primary)" /> THƯ VIỆN ẢNH & VIDEO
-                        </div>
-                        <div className="small">Nơi lưu giữ những khoảnh khắc quý giá của dòng tộc.</div>
-                    </div>
+                <div className="row" style={{ gap: 12 }}>
+                    {branches.length > 0 && (
+                        <select 
+                            className="select" 
+                            value={selectedBranch} 
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                            style={{ width: 200 }}
+                        >
+                            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                        </select>
+                    )}
                     <label className="btn primary" style={{ cursor: "pointer", position: "relative" }}>
                         <Upload size={18} style={{ marginRight: 8 }} />
                         {uploading ? "Đang tải lên..." : "Tải lên tệp mới"}
@@ -107,7 +133,7 @@ export default function Media() {
                                         display: "flex", alignItems: "center", justifyContent: "center", gap: 12
                                     }} className="hover-show">
                                         <button className="btn small" onClick={() => setPreviewItem(item)} style={{ background: "#fff", color: "#333" }}><Maximize2 size={16} /></button>
-                                        <button className="btn small" style={{ background: "rgba(239, 68, 68, 0.8)", color: "#fff" }}><Trash2 size={16} /></button>
+                                        <button className="btn small" onClick={() => handleDelete(item._id || item.id)} style={{ background: "rgba(239, 68, 68, 0.8)", color: "#fff" }}><Trash2 size={16} /></button>
                                     </div>
                                 </div>
                                 <div style={{ padding: 12 }}>

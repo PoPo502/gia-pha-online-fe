@@ -11,6 +11,8 @@ export default function BranchDetail() {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newMember, setNewMember] = useState({ userId: "", roleInBranch: "editor" });
 
     async function loadData() {
         setLoading(true);
@@ -38,6 +40,19 @@ export default function BranchDetail() {
             loadData();
         } catch (e) {
             alert("Lỗi: " + e.message);
+        }
+    };
+
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        try {
+            await branchesService.addMember(id, newMember);
+            alert("Đã thêm quản trị viên thành công!");
+            setShowAddModal(false);
+            setNewMember({ userId: "", roleInBranch: "editor" });
+            loadData();
+        } catch (e) {
+            alert("Lỗi khi thêm: " + e.message);
         }
     };
 
@@ -73,7 +88,7 @@ export default function BranchDetail() {
                                 <div style={{ fontWeight: 700, fontSize: 18, display: "flex", gap: 8, alignItems: "center" }}>
                                     <Users size={20} color="var(--primary)" /> Danh sách Thành viên Quản trị
                                 </div>
-                                <button className="btn small primary"><Plus size={16} /> Thêm người quản lý</button>
+                                <button className="btn small primary" onClick={() => setShowAddModal(true)}><Plus size={16} /> Thêm người quản lý</button>
                             </div>
 
                             <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
@@ -85,9 +100,9 @@ export default function BranchDetail() {
                                         {members.length === 0 ? (
                                             <tr><td colSpan="3" style={{ textAlign: "center", padding: 20 }}>Chưa có thành viên nào.</td></tr>
                                         ) : members.map((m, index) => {
-                                            const userObj = m.userId || {}; 
+                                            const userObj = m.userId || {};
                                             const uid = userObj._id || userObj;
-                                            
+
                                             return (
                                                 <tr key={uid || index}>
                                                     <td style={{ fontWeight: 600 }}>
@@ -102,8 +117,8 @@ export default function BranchDetail() {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <button 
-                                                            onClick={() => handleRemoveMember(uid)} 
+                                                        <button
+                                                            onClick={() => handleRemoveMember(uid)}
                                                             style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}
                                                             title="Gỡ thành viên"
                                                         >
@@ -136,6 +151,43 @@ export default function BranchDetail() {
                     </aside>
                 </div>
             </div>
+
+            {/* Add Member Modal */}
+            {showAddModal && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 400, animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+                        <div className="title-md" style={{ marginBottom: 16 }}>Thêm Quản lý Chi nhánh</div>
+                        <form onSubmit={handleAddMember} className="stack" style={{ gap: 16 }}>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>User ID (Bắt buộc)</label>
+                                <input
+                                    required
+                                    className="input"
+                                    placeholder="Nhập User ID (Ex: 60d5ecb...)"
+                                    value={newMember.userId}
+                                    onChange={(e) => setNewMember(s => ({ ...s, userId: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Vai trò trong chi nhánh</label>
+                                <select
+                                    className="select"
+                                    required
+                                    value={newMember.roleInBranch}
+                                    onChange={(e) => setNewMember(s => ({ ...s, roleInBranch: e.target.value }))}
+                                >
+                                    <option value="editor">Editor (Biên tập viên nhánh)</option>
+                                    <option value="viewer">Viewer (Người xem nhánh)</option>
+                                </select>
+                            </div>
+                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
+                                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hủy</button>
+                                <button type="submit" className="btn primary" disabled={!newMember.userId}>Lưu thành viên</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

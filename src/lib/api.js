@@ -74,22 +74,22 @@ api.interceptors.response.use(
 /** Helper unwrap theo spec {success, data, error} */
 export function unwrap(res) {
   if (res?.data?.success === false) {
-    const msg = res.data?.error?.message || "Request failed";
-    const code = res.data?.error?.code;
-    const details = res.data?.error?.details;
+    const msg = res.data?.error?.message || "Lỗi máy chủ cục bộ";
     const e = new Error(msg);
-    e.code = code;
-    e.details = details;
+    e.code = res.data?.error?.code;
+    e.details = res.data?.error?.details;
     throw e;
   }
 
-  // Nếu có meta thì trả về object chứa cả data và meta
-  if (res?.data?.meta) {
+  if (res?.data?.meta !== undefined && res?.data?.meta !== null) {
     return {
       data: res.data.data,
       meta: res.data.meta
     };
   }
+  if (res?.data?.data !== undefined) {
+      return res.data.data;
+  }
 
-  return res?.data?.data ?? res?.data;
+  return res?.data;
 }

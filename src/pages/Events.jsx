@@ -11,10 +11,11 @@ export default function Events() {
     const { me } = useAuth();
     const [activeTab, setActiveTab] = useState("events"); // events | live
     const [showAddModal, setShowAddModal] = useState(false);
-
+    const [editEventId, setEditEventId] = useState(null);
     const [events, setEvents] = useState([]);
     const [streams, setStreams] = useState([]);
     const [loading, setLoading] = useState(true);
+    
 
     useEffect(() => {
         async function fetchData() {
@@ -39,28 +40,28 @@ export default function Events() {
     const [branches, setBranches] = useState([]);
     const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
 
-useEffect(() => {
-    (async () => {
-        try {
-            const res = await branchesService.list({ limit: 200 });
-            const list = res?.data || res || [];
-            const arr = Array.isArray(list) ? list : (list.data || []);
-            setBranches(arr);
-            // set default branchId
-            if (arr.length && !formData.branchId) {
-                setFormData((s) => ({ ...s, branchId: arr[0]._id }));
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await branchesService.list({ limit: 200 });
+                const list = res?.data || res || [];
+                const arr = Array.isArray(list) ? list : (list.data || []);
+                setBranches(arr);
+                // set default branchId
+                if (arr.length && !formData.branchId) {
+                    setFormData((s) => ({ ...s, branchId: arr[0]._id }));
+                }
+            } catch (e) {
+                setBranches([]);
             }
-        } catch (e) {
-            setBranches([]);
-        }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const handleCreate = async (e) => {
+    const handleSubmitEvent = async (e) => {
         e.preventDefault();
         try {
-            await eventsService.create({
+            const payload = {
                 branchId: formData.branchId,
                 title: formData.title,
                 type: formData.type || "other",
@@ -68,18 +69,58 @@ useEffect(() => {
                 location: formData.location || "",
                 description: formData.description || "",
                 privacy: formData.privacy || "internal",
-                personIds: (formData.personIdsText || "")
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-            });
-            alert("Đã tạo sự kiện thành công!");
+                personIds: (formData.personIdsText || "").split(",").map((s) => s.trim()).filter(Boolean),
+            };
+
+            if (editEventId) {
+                // Chế độ Sửa
+                await eventsService.update(editEventId, payload);
+                alert("Cập nhật sự kiện thành công!");
+            } else {
+                // Chế độ Tạo mới
+                await eventsService.create(payload);
+                alert("Đã tạo sự kiện thành công!");
+            }
+
             const data = await eventsService.list();
             setEvents(data.data || data || []);
             setShowAddModal(false);
         } catch (err) {
-            alert("Lỗi khi tạo sự kiện: " + err.message);
+            alert("Lỗi: " + (err.response?.data?.error?.message || err.message));
         }
+    };
+
+    const handleDeleteEvent = async (eventId) => {
+        if (!confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) return;
+        try {
+            await eventsService.remove(eventId);
+            setEvents(events.filter(ev => (ev._id || ev.id) !== eventId));
+        } catch (err) {
+            alert("Lỗi khi xóa: " + (err.response?.data?.error?.message || err.message));
+        }
+    };
+
+    const openEditModal = (ev) => {
+        setEditEventId(ev._id || ev.id);
+        
+        // Định dạng lại ngày để hiển thị vào input datetime-local
+        let formattedDate = "";
+        if (ev.eventDate) {
+            const d = new Date(ev.eventDate);
+            formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+
+        setFormData({
+            branchId: ev.branchId?._id || ev.branchId || "",
+            title: ev.title || "",
+            type: ev.type || "other",
+            eventDate: formattedDate,
+            location: ev.location || "",
+            description: ev.description || "",
+            privacy: ev.privacy || "internal",
+            personIdsText: (ev.personIds || []).map(p => typeof p === 'object' ? p._id : p).join(", ")
+        });
+        setShowAddModal(true);
     };
 
     return (
@@ -87,16 +128,15 @@ useEffect(() => {
             <Topbar />
             <div className="container" style={{ maxWidth: 1000 }}>
 
-                <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
-                    <div>
-                        <div className="title-md">Sự kiện & Phát trực tiếp</div>
-                        <div className="small">Quản lý ngày giỗ, họp mặt và kết nối trực tuyến</div>
-                    </div>
-                    {(["admin","editor"].includes(String(me?.role||"").toLowerCase()) || me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN") && (
-                        <button className="btn primary" onClick={() => setShowAddModal(true)}>
-                            <Plus size={18} style={{ marginRight: 6 }} /> Tạo mới
-                        </button>
+                <div className="row" style={{ marginTop: 16, gap: 12 }}>
+                    {((["admin", "editor"].includes(String(me?.role || "").toLowerCase())) || me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN") && (
+                        <>
+                            <button className="btn outline" onClick={() => openEditModal(ev)}>Chỉnh sửa</button>
+                            <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
+                        </>
                     )}
+                    {/* Nút mặc định */}
+                    <button className="btn primary">Đăng ký tham gia</button>
                 </div>
 
                 {/* Custom Tabs */}
@@ -149,7 +189,7 @@ useEffect(() => {
                                             <span className="badge internal">{ev.type || "Sự kiện"}</span>
                                         </div>
                                         <div className="stack" style={{ gap: 8, color: "var(--text-dark)" }}>
-                                            <div className="row" style={{ gap: 8 }}><Calendar size={16} color="var(--text-light)" /> <strong>{ev.date ? new Date(ev.date).toLocaleDateString('vi-VN') : "N/A"}</strong></div>
+                                            <div className="row" style={{ gap: 8 }}><Calendar size={16} color="var(--text-light)" /> <strong>{ev.eventDate ? new Date(ev.eventDate).toLocaleDateString('vi-VN') : "N/A"}</strong></div>
                                             <div className="row" style={{ gap: 8 }}><MapPin size={16} color="var(--text-light)" /> <span>{ev.location || "Chưa cập nhật địa điểm"}</span></div>
                                             <p className="small" style={{ color: "var(--text-light)" }}>{ev.description}</p>
                                         </div>
@@ -220,7 +260,7 @@ useEffect(() => {
                             Tạo sự kiện hoặc Phát trực tiếp
                         </div>
 
-                        <form onSubmit={handleCreate} className="stack" style={{ gap: 12 }}>
+                        <form onSubmit={handleSubmitEvent} className="stack" style={{ gap: 12 }}>
                             <div>
                                 <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Chi nhánh (Branch)</label>
                                 <select
@@ -321,7 +361,7 @@ useEffect(() => {
                             <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
                                 <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hủy</button>
                                 <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title}>
-                                    Tạo sự kiện
+                                    {editEventId ? "Lưu thay đổi" : "Tạo sự kiện"}
                                 </button>
                             </div>
                         </form>

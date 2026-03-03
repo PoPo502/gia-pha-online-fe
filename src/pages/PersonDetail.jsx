@@ -6,6 +6,7 @@ import { personsService } from "../services/persons.service.js";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 import { useAuth } from "../store/auth.jsx";
 import { Camera, Edit2, User, Phone, MapPin, Calendar, CheckSquare, Trash2, Heart, Users } from "lucide-react";
+import { mediaService } from "../services/media.service.js";
 
 export default function PersonDetail() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { me } = useAuth();
 
   const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
@@ -30,12 +32,13 @@ export default function PersonDetail() {
     setIsEditing(false);
     try {
       const data = await personsService.get(id);
+      const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
       const normalized = {
-        ...data,
-        name: data.fullName,
-        birthYear: data.dateOfBirth ? new Date(data.dateOfBirth).getFullYear() : "",
-        deathYear: data.dateOfDeath ? new Date(data.dateOfDeath).getFullYear() : "",
-        isAlive: !data.dateOfDeath
+          ...data,
+          name: data.fullName,
+          dobRaw: formatYMD(data.dateOfBirth),
+          dodRaw: formatYMD(data.dateOfDeath),
+          isAlive: !data.dateOfDeath
       };
       setPerson(normalized);
       setEdit(normalized);
@@ -68,18 +71,19 @@ export default function PersonDetail() {
         return;
       }
       const payload = {
-        ...edit,
-        fullName: edit.name,
-        dateOfBirth: edit.birthYear ? `${edit.birthYear}-01-01` : null,
-        dateOfDeath: !edit.isAlive && edit.deathYear ? `${edit.deathYear}-01-01` : null
+          ...edit,
+          fullName: edit.name,
+          dateOfBirth: edit.dobRaw ? new Date(edit.dobRaw).toISOString() : null,
+          dateOfDeath: !edit.isAlive && edit.dodRaw ? new Date(edit.dodRaw).toISOString() : null
       };
       const data = await personsService.update(id, payload);
+      const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
       const normalized = {
-        ...data,
-        name: data.fullName,
-        birthYear: data.dateOfBirth ? new Date(data.dateOfBirth).getFullYear() : "",
-        deathYear: data.dateOfDeath ? new Date(data.dateOfDeath).getFullYear() : "",
-        isAlive: !data.dateOfDeath
+          ...data,
+          name: data.fullName,
+          dobRaw: formatYMD(data.dateOfBirth),
+          dodRaw: formatYMD(data.dateOfDeath),
+          isAlive: !data.dateOfDeath
       };
       setPerson(normalized);
       setEdit(normalized);
@@ -108,6 +112,34 @@ export default function PersonDetail() {
     }
   }
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const branchId = typeof person.branchId === 'object' ? person.branchId._id : person.branchId;
+    if (!branchId) return alert("Không tìm thấy thông tin Chi nhánh!");
+
+    setUploadingAvatar(true);
+    try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("branchId", branchId);
+        formData.append("personId", id);
+
+        const uploadRes = await mediaService.upload(formData);
+        const mediaId = uploadRes.data?._id || uploadRes?._id;
+
+        if (mediaId) {
+            await personsService.update(id, { avatarMediaId: mediaId });
+            alert("Cập nhật ảnh đại diện thành công!");
+            load();
+        }
+    } catch (err) {
+        alert("Lỗi tải ảnh: " + (err.response?.data?.error?.message || err.message));
+    } finally {
+        setUploadingAvatar(false);
+    }
+};
+
   if (loading) {
     return (
       <>
@@ -133,9 +165,16 @@ export default function PersonDetail() {
                   {(person?.name || person?.fullName || "U").charAt(0).toUpperCase()}
                 </div>
                 {isEditing && (
-                  <button className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%" }}>
-                    <Camera size={18} />
-                  </button>
+                    <label className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%", cursor: uploadingAvatar ? "not-allowed" : "pointer" }}>
+                        <Camera size={18} />
+                        <input 
+                            type="file" 
+                            hidden 
+                            accept="image/*" 
+                            onChange={handleAvatarUpload} 
+                            disabled={uploadingAvatar} 
+                        />
+                    </label>
                 )}
               </div>
 
@@ -241,13 +280,13 @@ export default function PersonDetail() {
 
                   <div className="row" style={{ gap: 16 }}>
                     <div style={{ flex: 1 }}>
-                      <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Năm sinh</div>
-                      <input className="input" type="number" placeholder="YYYY" value={edit.birthYear || ""} onChange={(e) => setEdit(s => ({ ...s, birthYear: e.target.value }))} />
+                      <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Ngày tháng năm sinh</div>
+                      <input className="input" type="date" value={edit.dobRaw || ""} onChange={(e) => setEdit(s => ({ ...s, dobRaw: e.target.value }))} />
                     </div>
                     {!edit.isAlive && (
                       <div style={{ flex: 1 }}>
-                        <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Năm mất</div>
-                        <input className="input" type="number" placeholder="YYYY" value={edit.deathYear || ""} onChange={(e) => setEdit(s => ({ ...s, deathYear: e.target.value }))} />
+                        <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Ngày tháng năm mất</div>
+                        <input className="input" type="date" value={edit.dodRaw || ""} onChange={(e) => setEdit(s => ({ ...s, dodRaw: e.target.value }))} />
                       </div>
                     )}
                   </div>

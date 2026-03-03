@@ -33,4 +33,10 @@ export const usersService = {
     const res = await api.put(`/users/${id}/ban`, payload);
     return unwrap(res);
   },
+  async changePassword(payload) {
+    if (DEV_BYPASS_AUTH) return { success: true };
+    // Lát nữa chúng ta sẽ viết API PUT /users/me/password ở BE
+    const res = await api.put("/users/me/password", payload);
+    return unwrap(res);
+  },
 };

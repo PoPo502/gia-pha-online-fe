@@ -85,7 +85,7 @@ export default function Topbar() {
 
               {(isAdmin || isEditor) && (
                 <Link
-                  to={isAdmin ? "/admin" : "/moderation"}
+                  to={isAdmin ? "/admin" : "/"}
                   className="btn"
                   style={{ background: "var(--accent)", color: "#fff", fontWeight: 800, borderRadius: 10, border: "none", padding: "8px 22px", boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)" }}
                 >

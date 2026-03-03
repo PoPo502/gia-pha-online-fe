@@ -17,12 +17,12 @@ function Node({ node, onNodeClick }) {
 
   // Tạo 1 hàm render chung để giao diện của Người Chính và Vợ/Chồng giống y hệt nhau
   const renderCard = (person) => (
-    <div 
-      className="tree-node-card" 
+    <div
+      className="tree-node-card"
       // Sửa 1: Cho phép click chuột trái ở bất cứ đâu trên thẻ để hiện Menu
-      onClick={(e) => { 
-        e.stopPropagation(); 
-        onNodeClick(e, person); 
+      onClick={(e) => {
+        e.stopPropagation();
+        onNodeClick(e, person);
       }}
       // Sửa 2: Chặn menu chuột phải mặc định và hiện Menu của mình
       onContextMenu={(e) => {
@@ -30,14 +30,14 @@ function Node({ node, onNodeClick }) {
         e.stopPropagation();
         onNodeClick(e, person); // Hiện menu của mình
       }}
-      style={{ 
-        borderRadius: 12, 
-        border: "2px solid #fff", 
+      style={{
+        borderRadius: 12,
+        border: "2px solid #fff",
         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         minWidth: 140,
         minHeight: 120,
-        display: "flex", 
-        flexDirection: "column", 
+        display: "flex",
+        flexDirection: "column",
         justifyContent: "center",
         alignItems: "center", // Căn giữa nội dung
         background: "var(--surface-solid)",
@@ -46,11 +46,11 @@ function Node({ node, onNodeClick }) {
       }}
     >
       {/* ... giữ nguyên phần avatar và name bên trong ... */}
-      <div className="tree-node-avatar" style={{ 
-          background: (person.gender === 'female' ? "rgba(236,72,153,0.1)" : "var(--primary-light)"), 
-          color: (person.gender === 'female' ? "#db2777" : "var(--primary)"), 
-          borderColor: "#fff",
-          marginBottom: "8px"
+      <div className="tree-node-avatar" style={{
+        background: (person.gender === 'female' ? "rgba(236,72,153,0.1)" : "var(--primary-light)"),
+        color: (person.gender === 'female' ? "#db2777" : "var(--primary)"),
+        borderColor: "#fff",
+        marginBottom: "8px"
       }}>
         {(person.fullName || person.name || "U").charAt(0).toUpperCase()}
       </div>
@@ -65,7 +65,7 @@ function Node({ node, onNodeClick }) {
     <li>
       {/* Wrapper dùng flex để xếp các thẻ nằm ngang cạnh nhau */}
       <div className="tree-node-wrapper" style={{ display: "flex", gap: 0, justifyContent: "center" }}>
-        
+
         {/* Render thẻ Bản thân */}
         {renderCard(node)}
 
@@ -111,10 +111,10 @@ export default function PersonTree() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState("root"); // root | relative
   const [targetNode, setTargetNode] = useState(null);
-  const [formData, setFormData] = useState({ 
-    fullName: "", 
-    birthYear: "", 
-    gender: "male", 
+  const [formData, setFormData] = useState({
+    fullName: "",
+    birthYear: "",
+    gender: "male",
     relation: "child",
     otherParentId: ""
   });
@@ -161,48 +161,50 @@ export default function PersonTree() {
     });
   };
 
-  
+
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     try {
-      const branchId = targetNode?.branchId || tree?.branchId;
-      
-      // 1. Tạo người con mới
+      let rawBranchId = targetNode?.branchId || tree?.branchId;
+      const branchId = typeof rawBranchId === "object" ? rawBranchId._id : rawBranchId;
+
+      if (!branchId) {
+          alert("Không tìm thấy mã Chi nhánh (BranchId). Vui lòng thử lại!");
+          return;
+      }
+
       const personPayload = {
         branchId,
         fullName: formData.fullName,
         gender: formData.gender,
         privacy: "internal",
       };
-      if (formData.birthYear) personPayload.birthYear = parseInt(formData.birthYear);
+      if (formData.birthYear) personPayload.dateOfBirth = `${formData.birthYear}-01-01`;
 
       const newPersonRes = await personsService.create(personPayload);
       const newPersonId = newPersonRes?.data?._id || newPersonRes?._id;
 
-      // 2. Tạo các mối quan hệ
       if (addMode === "relative" && targetNode) {
         const targetId = targetNode._id || targetNode.id;
-        
-        // Mối quan hệ 1: Với người được click (Bố/Mẹ đang chọn)
-        let relPayload = { 
-            branchId, 
-            fromPersonId: "", toPersonId: "", 
-            type: formData.relation === "spouse" ? "spouse_of" : "parent_of" 
+
+        let relPayload = {
+          branchId,
+          fromPersonId: "", toPersonId: "",
+          type: formData.relation === "spouse" ? "spouse_of" : "parent_of"
         };
 
         if (formData.relation === "child") {
-          relPayload.fromPersonId = targetId; 
+          relPayload.fromPersonId = targetId;
           relPayload.toPersonId = newPersonId;
         } else if (formData.relation === "parent") {
-          relPayload.fromPersonId = newPersonId; 
+          relPayload.fromPersonId = newPersonId;
           relPayload.toPersonId = targetId;
         } else {
-          relPayload.fromPersonId = targetId; 
+          relPayload.fromPersonId = targetId;
           relPayload.toPersonId = newPersonId;
         }
         await relationshipsService.create(relPayload);
 
-        // Mối quan hệ 2: Với Vợ/Chồng còn lại (Nếu là thêm Con và có chọn OtherParent)
         if (formData.relation === "child" && formData.otherParentId) {
           await relationshipsService.create({
             branchId,
@@ -213,17 +215,15 @@ export default function PersonTree() {
         }
       }
 
-      // 3. Hoàn tất và Reload
       setShowAddModal(false);
       setFormData({ fullName: "", birthYear: "", gender: "male", relation: "child", otherParentId: "" });
-      
-      // Nếu thêm đời trên thì đổi gốc cây, đời dưới thì giữ nguyên
+
       if (formData.relation === "parent") {
-          nav(`/persons/${newPersonId}/tree`);
+        nav(`/persons/${newPersonId}/tree`);
       } else {
-          load(params); 
+        load(params);
       }
-      
+
     } catch (err) {
       alert("Lỗi khi thêm: " + (err.response?.data?.error?.message || err.message));
     }
@@ -328,23 +328,40 @@ export default function PersonTree() {
             {loading && !tree && <div className="small" style={{ textAlign: "center", padding: 40 }}>Đang dựng cây gia phả...</div>}
 
             {tree && tree.siblings && tree.siblings.length > 0 && (
-                <div style={{ padding: "12px 24px", background: "rgba(246, 145, 19, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
-                    <div className="small" style={{ fontWeight: 600, color: "var(--accent)" }}>Anh/Chị/Em ruột:</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {tree.siblings.map(sib => (
-                            <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "#fff", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
-                                👥 {sib.fullName || sib.name}
-                            </div>
-                        ))}
+              <div style={{ padding: "12px 24px", background: "rgba(246, 145, 19, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="small" style={{ fontWeight: 600, color: "var(--accent)" }}>Anh/Chị/Em ruột:</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {tree.siblings.map(sib => (
+                    <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "#fff", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
+                      👥 {sib.fullName || sib.name}
                     </div>
+                  ))}
                 </div>
+              </div>
+            )}
+            {tree && tree.parents && tree.parents.length > 0 && (
+              <div style={{ padding: "12px 24px", background: "rgba(59, 130, 246, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="small" style={{ fontWeight: 600, color: "#3b82f6" }}>Chuyển Gốc Cây lên Cha/Mẹ:</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {tree.parents.map(parent => (
+                    <div 
+                      key={parent._id || parent.id} 
+                      className="badge" 
+                      style={{ cursor: "pointer", background: "#fff", color: "#3b82f6", border: "1px solid #3b82f6", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }} 
+                      onClick={() => nav(`/persons/${parent._id || parent.id}/tree`)}
+                    >
+                      Xem từ {parent.fullName || parent.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* BẮT ĐẦU: ĐOẠN CODE VẼ CÂY ĐÃ SỬA LẠI */}
             {tree && (
-              <div 
-                className="family-tree-container" 
-                ref={treeRef} 
+              <div
+                className="family-tree-container"
+                ref={treeRef}
                 style={{ padding: 20, minWidth: "100%", display: "inline-block", textAlign: "center" }}
               >
                 {/* CHÍNH LÀ THẺ DIV NÀY BỊ THIẾU NÈ: */}
@@ -438,9 +455,9 @@ export default function PersonTree() {
                   <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
                     Chọn Cha/Mẹ còn lại (Vợ/Chồng của {targetNode.fullName})
                   </label>
-                  <select 
-                    className="select" 
-                    value={formData.otherParentId} 
+                  <select
+                    className="select"
+                    value={formData.otherParentId}
                     onChange={(e) => setFormData({ ...formData, otherParentId: e.target.value })}
                   >
                     <option value="">-- Không xác định --</option>
