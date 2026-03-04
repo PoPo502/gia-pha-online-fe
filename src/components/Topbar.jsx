@@ -102,7 +102,7 @@ export default function Topbar() {
                   <div style={{ textAlign: "right", lineHeight: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-dark)" }}>{me.fullName || me.name || "User"}</div>
                     <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
-                        {isAdmin ? "Hệ thống" : isEditor ? "Quản trị" : "Thành viên"}
+                      {isAdmin ? "Hệ thống" : isEditor ? "Quản trị" : "Thành viên"}
                     </div>
                   </div>
                   <div className="avatar" style={{ width: 36, height: 36, fontSize: 15, background: "linear-gradient(135deg, var(--primary), var(--accent))", color: "#fff", border: "2px solid #fff" }}>
@@ -169,7 +169,7 @@ export default function Topbar() {
 
           {!me && !isAuthPage && (
             <div style={{ display: "flex", gap: 8 }}>
-              <Link className="btn" to="/register">Đăng ký</Link>
+              {/* Vô hiệu hóa nút Đăng ký theo yêu cầu Backend mới */}
               <Link className="btn primary" to="/login">Đăng nhập</Link>
             </div>
           )}

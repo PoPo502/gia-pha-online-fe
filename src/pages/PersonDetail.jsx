@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import ConfirmModal from "../components/ConfirmModal.jsx";
 import { personsService } from "../services/persons.service.js";
+import { usersService } from "../services/users.service.js";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 import { useAuth } from "../store/auth.jsx";
-import { Camera, Edit2, User, Phone, MapPin, Calendar, CheckSquare, Trash2, Heart, Users } from "lucide-react";
+import { Camera, Edit2, User, Phone, MapPin, Calendar, CheckSquare, Trash2, Heart, Users, Shield } from "lucide-react";
 import { mediaService } from "../services/media.service.js";
 
 export default function PersonDetail() {
@@ -32,9 +33,9 @@ export default function PersonDetail() {
     setIsEditing(false);
     try {
       const data = await personsService.get(id);
-      
+
       const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
-      
+
       const normalized = {
         ...data,
         name: data.fullName,
@@ -80,16 +81,16 @@ export default function PersonDetail() {
           });
 
           setFamilyMembers(mappedMembers);
-            }
-          } catch (relErr) {
-            console.warn("Could not load full family tree", relErr);
-          }
-        } catch (e) {
-          setErr(e.message || "Tải dữ liệu thất bại");
-        } finally {
-          setLoading(false);
         }
+      } catch (relErr) {
+        console.warn("Could not load full family tree", relErr);
       }
+    } catch (e) {
+      setErr(e.message || "Tải dữ liệu thất bại");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => { load(); }, [id]);
 
@@ -112,11 +113,11 @@ export default function PersonDetail() {
       const data = await personsService.update(id, payload);
       const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
       const normalized = {
-          ...data,
-          name: data.fullName,
-          dobRaw: formatYMD(data.dateOfBirth),
-          dodRaw: formatYMD(data.dateOfDeath),
-          isAlive: !data.dateOfDeath
+        ...data,
+        name: data.fullName,
+        dobRaw: formatYMD(data.dateOfBirth),
+        dodRaw: formatYMD(data.dateOfDeath),
+        isAlive: !data.dateOfDeath
       };
       setPerson(normalized);
       setEdit(normalized);
@@ -145,6 +146,21 @@ export default function PersonDetail() {
     }
   }
 
+  const [accountInfo, setAccountInfo] = useState(null);
+  async function handleCreateAccount() {
+    if (!window.confirm("Bạn có chắc chắn muốn cấp tài khoản cho thành viên này? Mật khẩu mặc định sẽ là ngày sinh (DDMMYY).")) return;
+    setSaving(true);
+    try {
+      const res = await usersService.createFromPerson({ personId: id });
+      // Mong đợi trả về { username, password }
+      setAccountInfo(res);
+    } catch (e) {
+      alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -153,25 +169,25 @@ export default function PersonDetail() {
 
     setUploadingAvatar(true);
     try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("branchId", branchId);
-        formData.append("personId", id);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("branchId", branchId);
+      formData.append("personId", id);
 
-        const uploadRes = await mediaService.upload(formData);
-        const mediaId = uploadRes.data?._id || uploadRes?._id;
+      const uploadRes = await mediaService.upload(formData);
+      const mediaId = uploadRes.data?._id || uploadRes?._id;
 
-        if (mediaId) {
-            await personsService.update(id, { avatarMediaId: mediaId });
-            alert("Cập nhật ảnh đại diện thành công!");
-            load();
-        }
+      if (mediaId) {
+        await personsService.update(id, { avatarMediaId: mediaId });
+        alert("Cập nhật ảnh đại diện thành công!");
+        load();
+      }
     } catch (err) {
-        alert("Lỗi tải ảnh: " + (err.response?.data?.error?.message || err.message));
+      alert("Lỗi tải ảnh: " + (err.response?.data?.error?.message || err.message));
     } finally {
-        setUploadingAvatar(false);
+      setUploadingAvatar(false);
     }
-};
+  };
 
   if (loading) {
     return (
@@ -198,16 +214,16 @@ export default function PersonDetail() {
                   {(person?.name || person?.fullName || "U").charAt(0).toUpperCase()}
                 </div>
                 {isEditing && (
-                    <label className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%", cursor: uploadingAvatar ? "not-allowed" : "pointer" }}>
-                        <Camera size={18} />
-                        <input 
-                            type="file" 
-                            hidden 
-                            accept="image/*" 
-                            onChange={handleAvatarUpload} 
-                            disabled={uploadingAvatar} 
-                        />
-                    </label>
+                  <label className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%", cursor: uploadingAvatar ? "not-allowed" : "pointer" }}>
+                    <Camera size={18} />
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      disabled={uploadingAvatar}
+                    />
+                  </label>
                 )}
               </div>
 
@@ -221,12 +237,25 @@ export default function PersonDetail() {
 
               <div className="small" style={{ color: "var(--muted)", fontWeight: 500 }}>ID Thành viên: {id}</div>
 
-              <div className="stack" style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+              <div className="stack" style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--border)", gap: 12 }}>
                 {!isEditing ? (
                   canEdit && (
-                    <button className="btn outline" style={{ width: "100%", justifyContent: "center", borderRadius: 8, fontWeight: 600 }} onClick={() => setIsEditing(true)}>
-                      <Edit2 size={16} style={{ marginRight: 8 }} /> Chỉnh sửa hồ sơ
-                    </button>
+                    <>
+                      <button className="btn outline" style={{ width: "100%", justifyContent: "center", borderRadius: 8, fontWeight: 600 }} onClick={() => setIsEditing(true)}>
+                        <Edit2 size={16} style={{ marginRight: 8 }} /> Chỉnh sửa hồ sơ
+                      </button>
+
+                      {!person.linkedUserId && (
+                        <button
+                          className="btn primary"
+                          style={{ width: "100%", justifyContent: "center", borderRadius: 8, fontWeight: 600, background: "var(--green)", borderColor: "var(--green)" }}
+                          onClick={handleCreateAccount}
+                          disabled={saving}
+                        >
+                          <Shield size={16} style={{ marginRight: 8 }} /> Cấp tài khoản đăng nhập
+                        </button>
+                      )}
+                    </>
                   )
                 ) : (
                   <div className="row" style={{ gap: 8 }}>
@@ -236,6 +265,30 @@ export default function PersonDetail() {
                 )}
               </div>
             </div>
+
+            {/* Account Info Modal */}
+            {accountInfo && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                <div className="card" style={{ width: 400, textAlign: "center", padding: 32, animation: "slideDown 0.3s ease" }}>
+                  <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+                  <div className="title-md" style={{ marginBottom: 8 }}>Cấp tài khoản thành công!</div>
+                  <p className="small" style={{ color: "var(--text-light)", marginBottom: 24 }}>Vui lòng gửi thông tin này cho thành viên để họ có thể đăng nhập.</p>
+
+                  <div className="stack" style={{ gap: 12, background: "var(--surface-solid)", padding: 20, borderRadius: 12, textAlign: "left", marginBottom: 24 }}>
+                    <div>
+                      <div className="small" style={{ fontWeight: 600, color: "var(--text-light)" }}>Tên đăng nhập (ID)</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>{accountInfo.username}</div>
+                    </div>
+                    <div>
+                      <div className="small" style={{ fontWeight: 600, color: "var(--text-light)" }}>Mật khẩu mặc định</div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>{accountInfo.password}</div>
+                    </div>
+                  </div>
+
+                  <button className="btn primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setAccountInfo(null)}>Đóng thông báo</button>
+                </div>
+              </div>
+            )}
           </aside>
 
           {/* Right Column: Details & Family */}
@@ -368,9 +421,9 @@ export default function PersonDetail() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name || m.fullName}</div>
                       <div className="small" style={{ marginBottom: 6 }}>
-                          <span className={`badge ${m.badgeClass}`} style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>
-                              {m.relation}
-                          </span>
+                        <span className={`badge ${m.badgeClass}`} style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>
+                          {m.relation}
+                        </span>
                       </div>
                       <Link to={`/persons/${m.id || m._id}`} className="btn outline" style={{ padding: "4px 8px", fontSize: 12, width: "100%", justifyContent: "center" }}>Xem hồ sơ</Link>
                     </div>

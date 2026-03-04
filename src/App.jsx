@@ -14,6 +14,7 @@ import Moderation from "./pages/Moderation.jsx";
 import Media from "./pages/Media.jsx";
 import Profile from "./pages/Profile.jsx";
 import BranchDetail from "./pages/BranchDetail.jsx";
+import ChangePasswordMandatory from "./pages/ChangePasswordMandatory.jsx";
 import { DEV_BYPASS_AUTH } from "./dev/devConfig.js";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={DEV_BYPASS_AUTH ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={DEV_BYPASS_AUTH ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/change-password-mandatory" element={<ChangePasswordMandatory />} />
 
       <Route path="/preview" element={<Preview />} />
 

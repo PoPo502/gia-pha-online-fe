@@ -29,6 +29,16 @@ api.interceptors.response.use(
     const original = err.config;
 
     if (!original) throw err;
+    if (err.response?.status === 403) {
+      const msg = err.response.data?.error?.message || "";
+      if (msg.includes("internal") || msg.includes("branch")) {
+        alert("Quyền truy cập bị từ chối: Bạn chưa được gán vào chi họ này nên không thể xem dữ liệu nội bộ.");
+      } else {
+        alert("Bạn không có quyền thực hiện hành động này.");
+      }
+      throw err;
+    }
+
     if (err.response?.status !== 401) throw err;
 
     // tránh loop vô hạn
@@ -88,7 +98,7 @@ export function unwrap(res) {
     };
   }
   if (res?.data?.data !== undefined) {
-      return res.data.data;
+    return res.data.data;
   }
 
   return res?.data;

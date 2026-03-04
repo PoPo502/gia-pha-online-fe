@@ -50,7 +50,14 @@ export function AuthProvider({ children }) {
           setMe({ ...DEV_ME, role, fullName });
           return { accessToken: "dev-token" };
         }
-        const data = await authService.login(payload);
+        // Change key from email to username if it's there
+        const body = { ...payload };
+        if (body.email) {
+          body.username = body.email;
+          delete body.email;
+        }
+
+        const data = await authService.login(body);
         // kỳ vọng data chứa accessToken
         if (data?.accessToken) tokenStore.setAccessToken(data.accessToken);
         await bootstrap();

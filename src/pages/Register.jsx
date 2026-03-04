@@ -37,97 +37,16 @@ export default function Register() {
       <div className="auth-wrap">
         <div className="auth-card" style={{ maxWidth: 420 }}>
           <div className="auth-title">Đăng ký tài khoản</div>
-          <div className="small" style={{ textAlign: "center", marginBottom: 24, color: "var(--text-light)" }}>
-            Gia nhập và kết nối với dòng họ của bạn ngay hôm nay.
+          <div className="card" style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.2)", padding: 20, textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+            <div style={{ fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>Hệ thống không cho phép đăng ký tự do</div>
+            <div className="small" style={{ color: "var(--text-light)", lineHeight: 1.6 }}>
+              Vui lòng liên hệ Admin hoặc Trưởng họ của bạn để được cấp tài khoản thành viên.
+            </div>
           </div>
 
-          <form className="stack" onSubmit={onSubmit}>
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Họ và Tên</div>
-              <input
-                className="input"
-                placeholder="VD: Nguyễn Văn A"
-                value={form.name}
-                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Email</div>
-              <input
-                className="input"
-                type="email"
-                placeholder="VD: user@domain.com"
-                value={form.email}
-                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Mật khẩu</div>
-              <input
-                className="input"
-                placeholder="••••••••"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                required
-                minLength={6}
-              />
-            </div>
-
-            <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Nhập lại Mật khẩu</div>
-              <input
-                className="input"
-                placeholder="••••••••"
-                type="password"
-                value={form.confirmPassword}
-                onChange={(e) => setForm((s) => ({ ...s, confirmPassword: e.target.value }))}
-                required
-              />
-            </div>
-
-            <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 14 }}>
-              {loading ? "Đang tạo..." : "Đăng ký"}
-            </button>
-
-            {err && (
-              <div style={{
-                color: "var(--danger)", background: "rgba(239, 68, 68, 0.1)",
-                padding: "10px", borderRadius: "8px", textAlign: "center", fontSize: 13, border: "1px solid rgba(239, 68, 68, 0.2)"
-              }}>
-                {err}
-              </div>
-            )}
-          </form>
-
-          <div style={{ display: "flex", alignItems: "center", margin: "24px 0", color: "var(--text-light)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-            <div style={{ margin: "0 12px", fontSize: 13, fontWeight: 500 }}>HOẶC ĐĂNG KÝ BẰNG</div>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-          </div>
-
-          <div className="stack" style={{ gap: 12 }}>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/google`} className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10, textDecoration: "none" }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="18" height="18" />
-              Đăng ký với Google
-            </a>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/facebook`} className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10, textDecoration: "none" }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg" alt="Facebook" width="18" height="18" />
-              Đăng ký với Facebook
-            </a>
-            <button className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10 }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" width="16" height="18" />
-              Đăng ký với Apple
-            </button>
-          </div>
-
-          <div className="small" style={{ textAlign: "center", marginTop: 24, padding: "16px 0", borderTop: "1px solid var(--border)" }}>
-            Đã có tài khoản?{" "}
-            <Link to="/login" style={{ color: "var(--primary)", fontWeight: 600 }}>Quay lại đăng nhập</Link>
+          <div style={{ textAlign: "center" }}>
+            <Link to="/login" className="btn primary" style={{ width: "100%", justifyContent: "center" }}>Quay lại đăng nhập</Link>
           </div>
         </div>
       </div>

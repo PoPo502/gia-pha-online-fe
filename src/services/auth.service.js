@@ -24,4 +24,9 @@ export const authService = {
     const res = await api.post("/auth/logout", {});
     return unwrap(res);
   },
+  async changePasswordMandatory(payload) {
+    // Spec: POST /api/auth/change-password
+    const res = await api.post("/auth/change-password", payload);
+    return unwrap(res);
+  },
 };

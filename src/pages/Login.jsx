@@ -16,8 +16,12 @@ export default function Login() {
     setErr("");
     setLoading(true);
     try {
-      await login(form);
-      nav("/");
+      const res = await login(form);
+      if (res?.user?.isFirstLogin || res?.isFirstLogin) {
+        nav("/change-password-mandatory");
+      } else {
+        nav("/");
+      }
     } catch (e2) {
       setErr(e2?.message || "Đăng nhập thất bại. Kiểm tra lại thông tin.");
     } finally {
@@ -37,11 +41,10 @@ export default function Login() {
 
           <form className="stack" onSubmit={onSubmit}>
             <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Email</div>
+              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Tên đăng nhập / Mã ID</div>
               <input
                 className="input"
-                type="email"
-                placeholder="VD: admin@gp.local"
+                placeholder="VD: NG05001"
                 value={form.email}
                 onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
                 required
@@ -59,7 +62,7 @@ export default function Login() {
                 required
               />
             </div>
-            
+
             {DEV_BYPASS_AUTH && (
               <div style={{ padding: 16, background: "var(--primary-light)", borderRadius: 12, marginBottom: 16, border: "1px solid var(--primary)" }}>
                 <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 8 }}>CHẾ ĐỘ DEV: CHỌN QUYỀN TRUY CẬP</div>

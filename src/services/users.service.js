@@ -39,4 +39,9 @@ export const usersService = {
     const res = await api.put("/users/me/password", payload);
     return unwrap(res);
   },
+  async createFromPerson(payload) {
+    // payload: { personId: "..." }
+    const res = await api.post("/users/create-from-person", payload);
+    return unwrap(res);
+  },
 };
