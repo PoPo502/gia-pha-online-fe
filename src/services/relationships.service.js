@@ -12,6 +12,10 @@ export const relationshipsService = {
     const res = await api.post("/relationships", payload);
     return unwrap(res);
   },
+  async getByPerson(personId) {
+    const res = await api.get(`/relationships/person/${personId}`);
+    return unwrap(res);
+  },
   async get(id) {
     const res = await api.get(`/relationships/${id}`);
     return unwrap(res);

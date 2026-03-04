@@ -79,7 +79,7 @@ export default function BranchDetail() {
         setSubmitting(true);
         try {
             await branchesService.addMember(id, { userId, roleInBranch: selectedRole });
-            alert("Đã thêm thành viên quản trị!");
+            alert("Đã thêm quản trị viên thành công!");
             setShowAddModal(false);
             setSearchTerm("");
             setFoundUsers([]);

@@ -18,6 +18,16 @@ export const mediaService = {
     const res = await api.get(`/media/${id}`);
     return unwrap(res);
   },
+  async update(id, payload) {
+    if (DEV_BYPASS_AUTH) return { id, ...payload };
+    const res = await api.put(`/media/${id}`, payload);
+    return unwrap(res);
+  },
+  async remove(id) {
+    if (DEV_BYPASS_AUTH) return { success: true };
+    const res = await api.delete(`/media/${id}`);
+    return unwrap(res);
+  },
   async stream(id) {
     const res = await api.get(`/media/stream/${id}`);
     return unwrap(res);

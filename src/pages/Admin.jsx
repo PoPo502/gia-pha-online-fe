@@ -5,6 +5,7 @@ import { Activity, Users as UsersIcon, GitBranch, ShieldAlert, History, Megaphon
 import { branchesService } from "../services/branches.service.js";
 import { usersService } from "../services/users.service.js";
 import { systemService } from "../services/system.service.js";
+import { auditService } from "../services/audit.service.js";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("trees"); // trees | users
@@ -14,6 +15,9 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState("100%");
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [branchForm, setBranchForm] = useState({ name: "", description: "" });
+  const [creatingBranch, setCreatingBranch] = useState(false);
 
   // Mock Global Events (BE spec không đề cập rõ service này)
   const [globalEvents, setGlobalEvents] = useState([
@@ -21,25 +25,21 @@ export default function Admin() {
     { id: 2, title: "Thông báo bảo trì hệ thống 00:00", status: "Inactive", type: "Alert" }
   ]);
 
-  // Mock Audit Logs (Sẽ cập nhật khi BE có endpoint)
-  const [auditLogs] = useState([
-    { id: 1, time: "27/02/2026 10:30", user: "system_admin", action: "Tạo Cây Gia phả mới", target: "Nhánh họ Trần" },
-    { id: 2, time: "27/02/2026 09:15", user: "system_admin", action: "Gán quyền TREE_ADMIN", target: "User ID 456" },
-    { id: 3, time: "26/02/2026 16:45", user: "tree_admin_1", action: "Duyệt bài đăng", target: "Post ID 999" },
-    { id: 4, time: "26/02/2026 14:20", user: "system_admin", action: "Bật Global Banner", target: "Năm mới" },
-  ]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   async function load() {
     setErr("");
     setLoading(true);
     try {
-      const [treesRes, usersRes] = await Promise.all([
+      const [treesRes, usersRes, auditRes] = await Promise.all([
         branchesService.list({ limit: 50 }),
-        usersService.list({ limit: 50 })
+        usersService.list({ limit: 50 }),
+        auditService.list({ limit: 10 })
       ]);
 
       setTrees(Array.isArray(treesRes.data) ? treesRes.data : (treesRes.data?.data || []));
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.data || []));
+      setAuditLogs(Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data?.data || []));
     } catch (e) {
       setErr(e.message || "Không thể tải dữ liệu quản trị từ Backend");
     } finally {
@@ -77,14 +77,30 @@ export default function Admin() {
   }
 
   async function handleRole(userId, currentRole) {
-    const newRole = currentRole === "USER" ? "TREE_ADMIN" : "USER";
-    if (!confirm(`Chuyển vai trò thành ${newRole}?`)) return;
+    const newRole = currentRole === "member" ? "editor" : "member";
+    if (!confirm(`Chuyển vai trò thành ${newRole.toUpperCase()}?`)) return;
     try {
-      await usersService.updateRole(userId, { role: newRole });
-      alert("Cập nhật quyền thành công!");
-      load();
+        await usersService.updateRole(userId, { role: newRole });
+        alert("Cập nhật quyền thành công!");
+        load();
     } catch (e) {
-      alert("Lỗi: " + e.message);
+        alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
+    }
+  }
+
+  async function handleCreateBranch(e) {
+    e.preventDefault();
+    setCreatingBranch(true);
+    try {
+      await branchesService.create(branchForm);
+      alert("Tạo chi nhánh thành công!");
+      setShowBranchModal(false);
+      setBranchForm({ name: "", description: "" });
+      load();
+    } catch (err) {
+      alert("Lỗi tạo chi nhánh: " + (err.response?.data?.error?.message || err.message));
+    } finally {
+      setCreatingBranch(false);
     }
   }
 
@@ -114,7 +130,9 @@ export default function Admin() {
           </div>
           <div>
             <button className="btn outline" style={{ marginRight: 12 }} onClick={load}><Activity size={16} style={{ marginRight: 6 }} /> Làm mới</button>
-            <button className="btn primary"><Plus size={16} style={{ marginRight: 6 }} /> Tạo Cây Gia phả mới</button>
+            <button className="btn primary" onClick={() => setShowBranchModal(true)}>
+              <Plus size={16} style={{ marginRight: 6 }} /> Tạo Cây Gia phả mới
+            </button>
           </div>
         </div>
 
@@ -233,7 +251,9 @@ export default function Admin() {
                               <div className="small" style={{ color: "var(--text-light)" }}>{u.email}</div>
                             </td>
                             <td>
-                              <span className={`badge ${u.role === "SUPER_ADMIN" ? "public" : "internal"}`}>{u.role}</span>
+                              <span className={`badge ${u.role === "admin" ? "public" : (u.role === "editor" ? "internal" : "")}`}>
+                                  {u.role ? u.role.toUpperCase() : "MEMBER"}
+                              </span>
                             </td>
                             <td>
                               {u.status === "banned" ? (
@@ -306,13 +326,13 @@ export default function Admin() {
 
                 <div className="stack" style={{ gap: 16 }}>
                   {auditLogs.map(log => (
-                    <div key={log.id} style={{ padding: 16, background: "var(--surface-solid)", borderRadius: 12, borderLeft: "4px solid var(--primary)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+                    <div key={log._id || log.id} style={{ padding: 16, background: "var(--surface-solid)", borderRadius: 12, borderLeft: "4px solid var(--primary)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
                       <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
                         <span style={{ fontWeight: 600, color: "var(--text-dark)" }}>{log.action}</span>
-                        <span className="small" style={{ color: "var(--text-light)", fontSize: 12 }}>{log.time}</span>
+                        <span className="small" style={{ color: "var(--text-light)", fontSize: 12 }}>{new Date(log.createdAt || log.time).toLocaleString('vi-VN')}</span>
                       </div>
-                      <div className="small" style={{ color: "var(--text-light)", marginTop: 4 }}>Bởi: <strong style={{ color: "var(--text-dark)" }}>{log.user}</strong></div>
-                      <div className="small" style={{ color: "var(--text-light)", marginTop: 4 }}>Đối tượng: <strong style={{ color: "var(--text-dark)" }}>{log.target}</strong></div>
+                      <div className="small" style={{ color: "var(--text-light)", marginTop: 4 }}>Bởi: <strong style={{ color: "var(--text-dark)" }}>{log.actorId?.fullName || log.actorId}</strong></div>
+                      <div className="small" style={{ color: "var(--text-light)", marginTop: 4 }}>Đối tượng: <strong style={{ color: "var(--text-dark)" }}>{log.entityType} ({log.entityId})</strong></div>
                     </div>
                   ))}
                 </div>
@@ -326,6 +346,43 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Modal Tạo Chi Nhánh */}
+      {showBranchModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+          <div className="card" style={{ width: 450, animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+            <div className="title-md" style={{ marginBottom: 16 }}>Tạo Chi nhánh / Phả hệ mới</div>
+            <form className="stack" onSubmit={handleCreateBranch}>
+              <div>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Tên chi nhánh</label>
+                <input 
+                  required 
+                  className="input" 
+                  placeholder="VD: Chi họ Nguyễn Đức..." 
+                  value={branchForm.name} 
+                  onChange={e => setBranchForm({...branchForm, name: e.target.value})} 
+                />
+              </div>
+              <div>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Mô tả chi tiết</label>
+                <textarea 
+                  className="input" 
+                  rows={3} 
+                  placeholder="Giới thiệu về nhánh này..." 
+                  value={branchForm.description} 
+                  onChange={e => setBranchForm({...branchForm, description: e.target.value})} 
+                />
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", marginTop: 16, gap: 10 }}>
+                <button type="button" className="btn outline" onClick={() => setShowBranchModal(false)}>Hủy</button>
+                <button type="submit" className="btn primary" disabled={creatingBranch}>
+                  {creatingBranch ? "Đang tạo..." : "Tạo mới"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

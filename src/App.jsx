@@ -105,7 +105,7 @@ export default function App() {
         }
       />
 
-      <Route
+      {/* <Route
         path="/moderation"
         element={
           <RequireAuth>
@@ -114,7 +114,7 @@ export default function App() {
             </RequireRole>
           </RequireAuth>
         }
-      />
+      /> */}
 
       <Route
         path="/admin"

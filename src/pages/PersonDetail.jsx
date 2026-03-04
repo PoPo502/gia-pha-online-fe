@@ -6,6 +6,7 @@ import { personsService } from "../services/persons.service.js";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 import { useAuth } from "../store/auth.jsx";
 import { Camera, Edit2, User, Phone, MapPin, Calendar, CheckSquare, Trash2, Heart, Users } from "lucide-react";
+import { mediaService } from "../services/media.service.js";
 
 export default function PersonDetail() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { me } = useAuth();
 
   const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
@@ -30,30 +32,64 @@ export default function PersonDetail() {
     setIsEditing(false);
     try {
       const data = await personsService.get(id);
+      
+      const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
+      
       const normalized = {
         ...data,
         name: data.fullName,
-        birthYear: data.dateOfBirth ? new Date(data.dateOfBirth).getFullYear() : "",
-        deathYear: data.dateOfDeath ? new Date(data.dateOfDeath).getFullYear() : "",
+        dobRaw: formatYMD(data.dateOfBirth),
+        dodRaw: formatYMD(data.dateOfDeath),
         isAlive: !data.dateOfDeath
       };
       setPerson(normalized);
       setEdit(normalized);
 
-      // Fetch real descendants or relatives as "family members"
       try {
-        const relatives = await personsService.descendants(id, { depth: 1 });
-        const list = relatives.data || relatives;
-        setFamilyMembers(Array.isArray(list) ? list.slice(0, 6) : []);
-      } catch (relErr) {
-        console.warn("Could not load family members", relErr);
+        const treeRes = await personsService.tree(id, { depth: 3, includeSpouses: true, includeSiblings: true });
+        const rootNode = treeRes?.data?.root || treeRes?.root;
+
+        if (rootNode) {
+          const mappedMembers = [];
+          const seen = new Set();
+
+          const addMember = (p, label, colorClass = "internal") => {
+            const pid = p?._id || p?.id;
+            if (!pid || seen.has(pid) || pid === id) return;
+            seen.add(pid);
+            mappedMembers.push({
+              id: pid,
+              name: p.fullName || p.name,
+              relation: label,
+              badgeClass: colorClass
+            });
+          };
+
+          (rootNode.spouses || []).forEach(p => addMember(p, "Vợ / Chồng", "public"));
+
+          (rootNode.parents || []).forEach(p => {
+            addMember(p, "Cha / Mẹ", "internal");
+            (p.parents || []).forEach(gp => addMember(gp, `Ông / Bà (${p.gender === 'male' ? 'nội' : 'ngoại'})`, "sensitive"));
+          });
+
+          (rootNode.siblings || []).forEach(p => addMember(p, "👥 Anh / Chị / Em", "internal"));
+
+          (rootNode.children || []).forEach(p => {
+            addMember(p, "Con cái", "public");
+            (p.children || []).forEach(gc => addMember(gc, `Cháu (con của ${p.fullName || p.name})`, "internal"));
+          });
+
+          setFamilyMembers(mappedMembers);
+            }
+          } catch (relErr) {
+            console.warn("Could not load full family tree", relErr);
+          }
+        } catch (e) {
+          setErr(e.message || "Tải dữ liệu thất bại");
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (e) {
-      setErr(e.message || "Tải dữ liệu thất bại");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => { load(); }, [id]);
 
@@ -70,16 +106,17 @@ export default function PersonDetail() {
       const payload = {
         ...edit,
         fullName: edit.name,
-        dateOfBirth: edit.birthYear ? `${edit.birthYear}-01-01` : null,
-        dateOfDeath: !edit.isAlive && edit.deathYear ? `${edit.deathYear}-01-01` : null
+        dateOfBirth: edit.dobRaw ? new Date(edit.dobRaw).toISOString() : null,
+        dateOfDeath: !edit.isAlive && edit.dodRaw ? new Date(edit.dodRaw).toISOString() : null
       };
       const data = await personsService.update(id, payload);
+      const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
       const normalized = {
-        ...data,
-        name: data.fullName,
-        birthYear: data.dateOfBirth ? new Date(data.dateOfBirth).getFullYear() : "",
-        deathYear: data.dateOfDeath ? new Date(data.dateOfDeath).getFullYear() : "",
-        isAlive: !data.dateOfDeath
+          ...data,
+          name: data.fullName,
+          dobRaw: formatYMD(data.dateOfBirth),
+          dodRaw: formatYMD(data.dateOfDeath),
+          isAlive: !data.dateOfDeath
       };
       setPerson(normalized);
       setEdit(normalized);
@@ -108,6 +145,34 @@ export default function PersonDetail() {
     }
   }
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const branchId = typeof person.branchId === 'object' ? person.branchId._id : person.branchId;
+    if (!branchId) return alert("Không tìm thấy thông tin Chi nhánh!");
+
+    setUploadingAvatar(true);
+    try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("branchId", branchId);
+        formData.append("personId", id);
+
+        const uploadRes = await mediaService.upload(formData);
+        const mediaId = uploadRes.data?._id || uploadRes?._id;
+
+        if (mediaId) {
+            await personsService.update(id, { avatarMediaId: mediaId });
+            alert("Cập nhật ảnh đại diện thành công!");
+            load();
+        }
+    } catch (err) {
+        alert("Lỗi tải ảnh: " + (err.response?.data?.error?.message || err.message));
+    } finally {
+        setUploadingAvatar(false);
+    }
+};
+
   if (loading) {
     return (
       <>
@@ -133,9 +198,16 @@ export default function PersonDetail() {
                   {(person?.name || person?.fullName || "U").charAt(0).toUpperCase()}
                 </div>
                 {isEditing && (
-                  <button className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%" }}>
-                    <Camera size={18} />
-                  </button>
+                    <label className="btn primary" style={{ position: "absolute", bottom: 8, right: 8, padding: 10, borderRadius: "50%", cursor: uploadingAvatar ? "not-allowed" : "pointer" }}>
+                        <Camera size={18} />
+                        <input 
+                            type="file" 
+                            hidden 
+                            accept="image/*" 
+                            onChange={handleAvatarUpload} 
+                            disabled={uploadingAvatar} 
+                        />
+                    </label>
                 )}
               </div>
 
@@ -241,13 +313,13 @@ export default function PersonDetail() {
 
                   <div className="row" style={{ gap: 16 }}>
                     <div style={{ flex: 1 }}>
-                      <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Năm sinh</div>
-                      <input className="input" type="number" placeholder="YYYY" value={edit.birthYear || ""} onChange={(e) => setEdit(s => ({ ...s, birthYear: e.target.value }))} />
+                      <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Ngày sinh</div>
+                      <input className="input" type="date" value={edit.dobRaw || ""} onChange={(e) => setEdit(s => ({ ...s, dobRaw: e.target.value }))} />
                     </div>
                     {!edit.isAlive && (
                       <div style={{ flex: 1 }}>
-                        <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Năm mất</div>
-                        <input className="input" type="number" placeholder="YYYY" value={edit.deathYear || ""} onChange={(e) => setEdit(s => ({ ...s, deathYear: e.target.value }))} />
+                        <div className="small" style={{ marginBottom: 6, fontWeight: 500 }}>Ngày mất</div>
+                        <input className="input" type="date" value={edit.dodRaw || ""} onChange={(e) => setEdit(s => ({ ...s, dodRaw: e.target.value }))} />
                       </div>
                     )}
                   </div>
@@ -295,7 +367,11 @@ export default function PersonDetail() {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name || m.fullName}</div>
-                      <div className="small" style={{ color: "var(--text-light)", marginBottom: 6 }}>{m.relation}</div>
+                      <div className="small" style={{ marginBottom: 6 }}>
+                          <span className={`badge ${m.badgeClass}`} style={{ padding: "3px 8px", fontSize: 11, fontWeight: 700 }}>
+                              {m.relation}
+                          </span>
+                      </div>
                       <Link to={`/persons/${m.id || m._id}`} className="btn outline" style={{ padding: "4px 8px", fontSize: 12, width: "100%", justifyContent: "center" }}>Xem hồ sơ</Link>
                     </div>
                   </div>

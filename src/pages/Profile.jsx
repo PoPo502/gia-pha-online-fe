@@ -17,6 +17,8 @@ export default function Profile() {
 
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState({ type: "", text: "" });
+    const [passLoading, setPassLoading] = useState(false);
+    const [passMsg, setPassMsg] = useState({ type: "", text: "" });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -36,6 +38,31 @@ export default function Profile() {
             setMsg({ type: "error", text: "Lỗi: " + err.message });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        setPassLoading(true);
+        setPassMsg({ type: "", text: "" });
+
+        if (formData.newPassword !== formData.confirmPassword) {
+            setPassMsg({ type: "error", text: "Mật khẩu xác nhận không khớp!" });
+            setPassLoading(false);
+            return;
+        }
+
+        try {
+            await usersService.changePassword({
+                currentPassword: formData.currentPassword,
+                newPassword: formData.newPassword
+            });
+            setPassMsg({ type: "success", text: "Đổi mật khẩu thành công!" });
+            setFormData({ ...formData, currentPassword: "", newPassword: "", confirmPassword: "" });
+        } catch (err) {
+            setPassMsg({ type: "error", text: "Lỗi: " + (err.response?.data?.error?.message || err.message) });
+        } finally {
+            setPassLoading(false);
         }
     };
 
@@ -114,30 +141,31 @@ export default function Profile() {
                         </div>
 
                         {/* Đổi mật khẩu */}
-                        <div className="card">
-                            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20, display: "flex", gap: 8, alignItems: "center" }}>
-                                <Shield size={20} color="var(--primary)" /> Bảo mật & Mật khẩu
-                            </div>
-                            <form className="stack" style={{ gap: 16 }}>
+                            <form className="stack" style={{ gap: 16 }} onSubmit={handleChangePassword}>
+                                {passMsg.text && (
+                                    <div style={{ color: passMsg.type === "success" ? "var(--green)" : "var(--danger)", fontSize: 14, fontWeight: 500 }}>
+                                        {passMsg.text}
+                                    </div>
+                                )}
+
                                 <div className="form-group">
                                     <label className="label">Mật khẩu hiện tại</label>
-                                    <input type="password" name="currentPassword" className="input" onChange={handleChange} />
+                                    <input required type="password" name="currentPassword" value={formData.currentPassword} className="input" onChange={handleChange} />
                                 </div>
                                 <div className="row" style={{ gap: 16 }}>
                                     <div className="form-group" style={{ flex: 1 }}>
                                         <label className="label">Mật khẩu mới</label>
-                                        <input type="password" name="newPassword" className="input" onChange={handleChange} />
+                                        <input required type="password" name="newPassword" value={formData.newPassword} className="input" onChange={handleChange} />
                                     </div>
                                     <div className="form-group" style={{ flex: 1 }}>
                                         <label className="label">Xác nhận mật khẩu</label>
-                                        <input type="password" name="confirmPassword" className="input" onChange={handleChange} />
+                                        <input required type="password" name="confirmPassword" value={formData.confirmPassword} className="input" onChange={handleChange} />
                                     </div>
                                 </div>
-                                <button type="button" className="btn outline" style={{ alignSelf: "flex-start", marginTop: 8 }}>
-                                    <Key size={18} style={{ marginRight: 8 }} /> Cập nhật mật khẩu
+                                <button type="submit" className="btn outline" disabled={passLoading} style={{ alignSelf: "flex-start", marginTop: 8 }}>
+                                    <Key size={18} style={{ marginRight: 8 }} /> {passLoading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
                                 </button>
                             </form>
-                        </div>
                     </div>
                 </div>
             </div>

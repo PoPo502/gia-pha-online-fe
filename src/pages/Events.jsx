@@ -13,6 +13,7 @@ export default function Events() {
 
     const [activeTab, setActiveTab] = useState("events"); // events | live | pending
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editEventId, setEditEventId] = useState(null);
     const [registeredEvents, setRegisteredEvents] = useState({});
 
     const [events, setEvents] = useState([]);
@@ -26,34 +27,31 @@ export default function Events() {
     // Nếu không có trường status, coi tất cả là approved cho user bình thường
     const userEvents = isAdmin ? approvedEvents : events;
 
-    useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
-            try {
-                if (isAdmin) {
-                    const [approvedRes, pendingRes] = await Promise.all([
-                        eventsService.list({ status: "approved" }),
-                        eventsService.list({ status: "pending" })
-                    ]);
-                    const approved = approvedRes.data || approvedRes || [];
-                    const pending = pendingRes.data || pendingRes || [];
-                    setEvents([...approved, ...pending]);
-                } else {
-                    const data = await eventsService.list({ status: "approved" });
-                    setEvents(data.data || data || []);
-                }
-
-                // Fetch media for streams if possible
-                // const mediaData = await mediaService.list();
-                // setStreams(mediaData.data || mediaData || []);
-                setStreams(mockStreams); // Keep mock for streams for now as it's more UX focused
-            } catch (e) {
-                console.error("Failed to fetch events", e);
-            } finally {
-                setLoading(false);
+    async function fetchEvents() {
+        setLoading(true);
+        try {
+            if (isAdmin) {
+                const [approvedRes, pendingRes] = await Promise.all([
+                    eventsService.list({ status: "approved" }),
+                    eventsService.list({ status: "pending" })
+                ]);
+                const approved = approvedRes.data || approvedRes || [];
+                const pending = pendingRes.data || pendingRes || [];
+                setEvents([...approved, ...pending]);
+            } else {
+                const data = await eventsService.list({ status: "approved" });
+                setEvents(data.data || data || []);
             }
+            setStreams(mockStreams);
+        } catch (e) {
+            console.error("Failed to fetch events", e);
+        } finally {
+            setLoading(false);
         }
-        fetchData();
+    }
+
+    useEffect(() => {
+        fetchEvents();
     }, []);
 
     const [branches, setBranches] = useState([]);
@@ -111,14 +109,14 @@ export default function Events() {
             await eventsService.remove(eventId);
             setEvents(prev => prev.filter(e => (e._id || e.id) !== eventId));
         } catch (e) {
-            alert("Lỗi khi xóa sự kiện: " + e.message);
+            alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
         }
     };
 
-    const handleCreate = async (e) => {
+    const handleSubmitEvent = async (e) => {
         e.preventDefault();
         try {
-            await eventsService.create({
+            const payload = {
                 branchId: formData.branchId,
                 title: formData.title,
                 type: formData.type || "other",
@@ -126,30 +124,49 @@ export default function Events() {
                 location: formData.location || "",
                 description: formData.description || "",
                 privacy: formData.privacy || "internal",
-                personIds: (formData.personIdsText || "")
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-            });
-            alert(isAdmin ? "Đã tạo sự kiện thành công!" : "Đã gửi yêu cầu tạo sự kiện thành công. Vui lòng chờ Ban quản trị duyệt!");
+                personIds: (formData.personIdsText || "").split(",").map((s) => s.trim()).filter(Boolean),
+            };
 
-            // Refetch based on role
-            if (isAdmin) {
-                const [approvedRes, pendingRes] = await Promise.all([
-                    eventsService.list({ status: "approved" }),
-                    eventsService.list({ status: "pending" })
-                ]);
-                const approved = approvedRes.data || approvedRes || [];
-                const pending = pendingRes.data || pendingRes || [];
-                setEvents([...approved, ...pending]);
+            if (editEventId) {
+                // Chế độ Sửa
+                await eventsService.update(editEventId, payload);
+                alert("Cập nhật sự kiện thành công!");
             } else {
-                const data = await eventsService.list({ status: "approved" });
-                setEvents(data.data || data || []);
+                // Chế độ Tạo mới
+                await eventsService.create(payload);
+                alert(isAdmin ? "Đã tạo sự kiện thành công!" : "Đã gửi yêu cầu tạo sự kiện thành công. Vui lòng chờ Ban quản trị duyệt!");
             }
+
+            fetchEvents();
             setShowAddModal(false);
+            setEditEventId(null);
+            setFormData({ branchId: branches[0]?._id || "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
         } catch (err) {
-            alert("Lỗi khi tạo sự kiện: " + err.message);
+            alert("Lỗi: " + (err.response?.data?.error?.message || err.message));
         }
+    };
+
+    const openEditModal = (ev) => {
+        setEditEventId(ev._id || ev.id);
+
+        // Định dạng lại ngày để hiển thị vào input datetime-local
+        let formattedDate = "";
+        if (ev.eventDate) {
+            const d = new Date(ev.eventDate);
+            formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+
+        setFormData({
+            branchId: ev.branchId?._id || ev.branchId || "",
+            title: ev.title || "",
+            type: ev.type || "other",
+            eventDate: formattedDate,
+            location: ev.location || "",
+            description: ev.description || "",
+            privacy: ev.privacy || "internal",
+            personIdsText: (ev.personIds || []).map(p => typeof p === 'object' ? p._id : p).join(", ")
+        });
+        setShowAddModal(true);
     };
 
     return (
@@ -163,7 +180,7 @@ export default function Events() {
                         <div className="small">Quản lý ngày giỗ, họp mặt và kết nối trực tuyến</div>
                     </div>
                     {/* Cho phép tất cả user nhấn Tạo mới, user thường tạo ra sẽ ở trạng thái pending */}
-                    <button className="btn primary" onClick={() => setShowAddModal(true)}>
+                    <button className="btn primary" onClick={() => { setEditEventId(null); setShowAddModal(true); }}>
                         <Plus size={18} style={{ marginRight: 6 }} /> Tạo sự kiện / Đăng ký Phát trực tiếp
                     </button>
                 </div>
@@ -243,7 +260,10 @@ export default function Events() {
                                                 )
                                             )}
                                             {isAdmin && (
-                                                <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
+                                                <>
+                                                    <button className="btn outline" onClick={() => openEditModal(ev)}>Chỉnh sửa</button>
+                                                    <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
+                                                </>
                                             )}
                                             <button className="btn outline">Xem chi tiết</button>
                                         </div>
@@ -304,7 +324,7 @@ export default function Events() {
 
                         {activeTab === "live" && (
                             <div className="stack" style={{ gap: 16 }}>
-                                {mockStreams.map(st => (
+                                {streams.map(st => (
                                     <div key={st.id} className="card">
                                         <div style={{ aspectRatio: "16/9", background: "var(--surface-hover)", borderRadius: "var(--radius-lg)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                                             {st.status === "live" ? (
@@ -352,16 +372,16 @@ export default function Events() {
                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
                     <div className="card" style={{ width: 500, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
                         <div className="title-md" style={{ marginBottom: 16 }}>
-                            Tạo sự kiện hoặc Phát trực tiếp
+                            {editEventId ? "Chỉnh sửa sự kiện" : "Tạo sự kiện hoặc Phát trực tiếp"}
                         </div>
 
-                        {!isAdmin && (
+                        {(!isAdmin && !editEventId) && (
                             <div style={{ background: "rgba(239, 68, 68, 0.1)", color: "var(--danger)", padding: "12px", borderRadius: "8px", marginBottom: "16px", fontSize: "14px", fontWeight: "500", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
                                 ℹ️ Sự kiện bạn tạo sẽ được đưa vào hàng chờ duyệt. Vui lòng chờ Ban quản trị (Admin) kiểm duyệt trước khi hiển thị công khai.
                             </div>
                         )}
 
-                        <form onSubmit={handleCreate} className="stack" style={{ gap: 12 }}>
+                        <form onSubmit={handleSubmitEvent} className="stack" style={{ gap: 12 }}>
                             <div>
                                 <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Chi nhánh (Branch)</label>
                                 <select
@@ -460,9 +480,9 @@ export default function Events() {
                             </div>
 
                             <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
-                                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hủy</button>
+                                <button type="button" className="btn outline" onClick={() => { setShowAddModal(false); setEditEventId(null); }}>Hủy</button>
                                 <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title}>
-                                    {isAdmin ? "Tạo sự kiện" : "Gửi yêu cầu phê duyệt"}
+                                    {editEventId ? "Lưu thay đổi" : (isAdmin ? "Tạo sự kiện" : "Gửi yêu cầu phê duyệt")}
                                 </button>
                             </div>
                         </form>

@@ -8,7 +8,7 @@ import { personsService } from "../services/persons.service.js";
 
 export default function HomeTreeAdmin() {
     const { me } = useAuth();
-    const [pendingCount, setPendingCount] = useState(0);
+    // const [pendingCount, setPendingCount] = useState(0);
     const [recentMembers, setRecentMembers] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -19,7 +19,7 @@ export default function HomeTreeAdmin() {
                     moderationService.getPending(),
                     personsService.list({ limit: 5 })
                 ]);
-                setPendingCount(pending?.length || 0);
+                // setPendingCount(pending?.length || 0);
                 setRecentMembers(members?.data || members || []);
             } catch (e) {
                 console.error("Failed to load admin data", e);
@@ -48,7 +48,7 @@ export default function HomeTreeAdmin() {
                             <ShieldAlert size={32} opacity={0.8} />
                             <Link to="/moderation" style={{ color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "underline" }}>Xử lý ngay</Link>
                         </div>
-                        <div style={{ fontSize: 36, fontWeight: 900 }}>{pendingCount}</div>
+                        {/* <div style={{ fontSize: 36, fontWeight: 900 }}>{pendingCount}</div> */}
                         <div style={{ fontWeight: 600, opacity: 0.9 }}>Yêu cầu chờ duyệt</div>
                     </div>
 
