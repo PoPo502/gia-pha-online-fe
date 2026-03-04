@@ -4,7 +4,6 @@ import { useAuth } from "../store/auth.jsx";
 import { Calendar, Video, Plus, Users, Clock, MapPin, Radio } from "lucide-react";
 import { eventsService } from "../services/events.service.js";
 import { branchesService } from "../services/branches.service.js";
-import { mockStreams } from "../dev/mockData.js";
 
 
 export default function Events() {
@@ -42,7 +41,8 @@ export default function Events() {
                 const data = await eventsService.list({ status: "approved" });
                 setEvents(data.data || data || []);
             }
-            setStreams(mockStreams);
+            // Real streams would go here
+            setStreams([]);
         } catch (e) {
             console.error("Failed to fetch events", e);
         } finally {
@@ -348,6 +348,13 @@ export default function Events() {
                                         </div>
                                     </div>
                                 ))}
+                                {streams.length === 0 && !loading && (
+                                    <div className="card" style={{ textAlign: "center", padding: 60, color: "var(--text-light)" }}>
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
+                                        <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Chưa có luồng trực tiếp nào</div>
+                                        <div className="small">Khi có các sự kiện được phát trực tiếp, chúng sẽ xuất hiện tại đây.</div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
