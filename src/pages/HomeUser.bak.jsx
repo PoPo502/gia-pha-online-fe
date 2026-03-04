@@ -27,9 +27,6 @@ export default function HomeUser() {
     const [openComments, setOpenComments] = useState({});
     const [commentsData, setCommentsData] = useState({});
     const [commentTexts, setCommentTexts] = useState({});
-    const [editingComment, setEditingComment] = useState(null);
-    const [editingPostId, setEditingPostId] = useState(null);
-    const [editingPostContent, setEditingPostContent] = useState("");
 
     const feelings = [
         { emoji: "😀", label: "Hạnh phúc" },
@@ -96,12 +93,9 @@ export default function HomeUser() {
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setSelectedImage(reader.result);
-                setShowModal(true);
-            };
-            reader.readAsDataURL(file);
+            const url = URL.createObjectURL(file);
+            setSelectedImage(url);
+            setShowModal(true);
         }
     };
 
@@ -140,52 +134,6 @@ export default function HomeUser() {
             setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
         } catch (e) {
             console.error("Lỗi gửi bình luận", e);
-        }
-    };
-
-    const handleSaveEditComment = async (postId, commentId) => {
-        if (!editingComment?.text?.trim()) return;
-        try {
-            await postsService.updateComment(postId, commentId, editingComment.text);
-            setEditingComment(null);
-            const cmtList = await postsService.getComments(postId);
-            setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
-        } catch (e) {
-            console.error("Lỗi sửa bình luận", e);
-        }
-    };
-
-    const handleDeleteComment = async (postId, commentId) => {
-        if (!window.confirm("Bạn có chắc muốn xoá bình luận này?")) return;
-        try {
-            await postsService.removeComment(postId, commentId);
-            const cmtList = await postsService.getComments(postId);
-            setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
-        } catch (e) {
-            console.error("Lỗi xoá bình luận", e);
-        }
-    };
-
-    const handleUpdatePost = async (postId) => {
-        if (!editingPostContent.trim()) return;
-        try {
-            await postsService.update(postId, { content: editingPostContent });
-            setEditingPostId(null);
-            const postsRes = await postsService.list();
-            setPosts(postsRes || []);
-        } catch (e) {
-            console.error("Lỗi cập nhật bài viết:", e);
-        }
-    };
-
-    const handleDeletePost = async (postId) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa bài viết này chứ?")) return;
-        try {
-            await postsService.remove(postId);
-            const postsRes = await postsService.list();
-            setPosts(postsRes || []);
-        } catch (e) {
-            console.error("Lỗi xóa bài viết:", e);
         }
     };
 
@@ -301,57 +249,22 @@ export default function HomeUser() {
                     {posts.map(post => {
                         const isLiked = Array.isArray(post.likes) ? post.likes.includes(me?.id) : false;
                         const likeCount = Array.isArray(post.likes) ? post.likes.length : (post.likes || 0);
-                        const postId = post.id || post._id;
-                        
-                        const uId = post.user_id?._id || post.user_id || post.userId;
-                        const isMyPost = (uId && uId === me?.id) || post.user === me?.fullName;
 
                         return (
-                            <div key={postId} className="post-card">
-                                <div style={{ display: "flex", gap: 12, marginBottom: 12, justifyContent: "space-between" }}>
-                                    <div style={{ display: "flex", gap: 12 }}>
-                                        <div className="avatar" style={{ width: 40, height: 40, background: post.avatarColor || "#8b5cf6", color: "#fff" }}>{post.avatar || (post.user ? post.user.charAt(0) : "U")}</div>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>{post.user}</div>
-                                            <div className="small">{post.time || new Date(post.createdAt || Date.now()).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
-                                        </div>
+                            <div key={post.id || post._id} className="post-card">
+                                <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                                    <div className="avatar" style={{ width: 40, height: 40, background: post.avatarColor || "#8b5cf6", color: "#fff" }}>{post.avatar || (post.user ? post.user.charAt(0) : "U")}</div>
+                                    <div>
+                                        <div style={{ fontWeight: 700 }}>{post.user}</div>
+                                        <div className="small">{post.time || new Date(post.createdAt).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
-                                    {isMyPost && (
-                                        <div style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "center" }}>
-                                            <span style={{ cursor: "pointer", color: "var(--primary)", fontWeight: 600 }} onClick={() => { setEditingPostId(postId); setEditingPostContent(post.content); }}>Sửa</span>
-                                            <span style={{ cursor: "pointer", color: "var(--red)", fontWeight: 600 }} onClick={() => handleDeletePost(postId)}>Xóa</span>
-                                        </div>
-                                    )}
                                 </div>
-                                
-                                {editingPostId === postId ? (
-                                    <div style={{ marginBottom: 16 }}>
-                                        <textarea 
-                                            value={editingPostContent} 
-                                            onChange={(e) => setEditingPostContent(e.target.value)} 
-                                            style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)", minHeight: 80, outline: "none", fontFamily: "inherit" }}
-                                        />
-                                        <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" }}>
-                                            <button className="btn outline small" style={{ padding: "6px 12px" }} onClick={() => setEditingPostId(null)}>Hủy</button>
-                                            <button className="btn primary small" style={{ padding: "6px 12px" }} onClick={() => handleUpdatePost(postId)}>Lưu</button>
-                                        </div>
+                                <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
+                                {post.image_url && (
+                                    <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+                                        <img src={post.image_url} alt="Post media" style={{ width: "100%", maxHeight: 500, objectFit: "cover", display: "block" }} />
                                     </div>
-                                ) : (
-                                    <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
                                 )}
-                                {(() => {
-                                    const imgPath = post.image_url || post.image;
-                                    if (!imgPath) return null;
-                                    const src = imgPath.startsWith('http') || imgPath.startsWith('data:') || imgPath.startsWith('blob:')
-                                        ? imgPath
-                                        : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgPath.startsWith('/') ? imgPath : `/${imgPath}`);
-
-                                    return (
-                                        <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-                                            <img src={src} alt="Post media" style={{ width: "100%", maxHeight: 500, objectFit: "cover", display: "block" }} />
-                                        </div>
-                                    )
-                                })()}
                                 <div style={{ display: "flex", gap: 16, padding: "8px 0", color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
                                     <div onClick={() => handleLike(post.id || post._id)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: isLiked ? "var(--red)" : "inherit", fontWeight: isLiked ? 600 : "normal" }}>
                                         <Heart size={20} fill={isLiked ? "var(--red)" : "none"} /> {likeCount}
@@ -387,25 +300,10 @@ export default function HomeUser() {
                                         <div className="comments-list" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                             {(commentsData[post.id || post._id] || []).map(cmt => {
                                                 const cmtId = cmt.id || cmt._id;
-
-                                                // Kiểm tra nếu user_id được populate (là một object chứa fullName, _id)
-                                                // Hoặc nếu backend trả về là chuỗi ObjectID
-                                                const isPopulated = cmt.user_id && typeof cmt.user_id === 'object';
-
-                                                // Định nghĩa Tên người dùng để hiển thị
-                                                const uName = isPopulated && cmt.user_id.fullName
-                                                    ? cmt.user_id.fullName
-                                                    : (typeof cmt.user === 'object' ? cmt.user?.fullName : cmt.user) || "Thành viên";
-
-                                                // Lấy ID thật của người dùng tạo comment
-                                                const userIdFromComment = isPopulated ? cmt.user_id._id : cmt.user_id;
-
-                                                // So sánh với ID của người dùng đang đăng nhập
-                                                const isMyComment = userIdFromComment === me?.id;
-
+                                                const isMyComment = (cmt.user_id && cmt.user_id === me?.id) || (cmt.userId && cmt.userId === me?.id) || (cmt.user === me?.fullName);
                                                 return (
                                                     <div key={cmtId} style={{ display: "flex", gap: 10 }}>
-                                                        <div className="avatar" style={{ width: 32, height: 32, flexShrink: 0, fontSize: 14 }}>{uName.charAt(0)}</div>
+                                                        <div className="avatar" style={{ width: 32, height: 32, flexShrink: 0, fontSize: 14 }}>{cmt.user ? cmt.user.charAt(0) : "U"}</div>
                                                         <div style={{ flex: 1 }}>
                                                             {editingComment?.id === cmtId ? (
                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 350 }}>
@@ -428,7 +326,7 @@ export default function HomeUser() {
                                                             ) : (
                                                                 <>
                                                                     <div style={{ background: "#f0f2f5", padding: "8px 12px", borderRadius: 16, display: "inline-block" }}>
-                                                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{uName}</div>
+                                                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{cmt.user || "Thành viên"}</div>
                                                                         <div style={{ fontSize: 14 }}>{cmt.content}</div>
                                                                     </div>
                                                                     <div style={{ fontSize: 12, color: "var(--muted)", marginLeft: 12, marginTop: 4, display: "flex", gap: 12 }}>

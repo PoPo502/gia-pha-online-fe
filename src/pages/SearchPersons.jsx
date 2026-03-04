@@ -4,6 +4,7 @@ import { searchService } from "../services/search.service.js";
 import { branchesService } from "../services/branches.service.js";
 import { Link } from "react-router-dom";
 import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+import { useDebounce } from "../hooks/useDebounce.js";
 import { Search, Filter, MapPin, Users, CalendarDays, Activity, ChevronDown } from "lucide-react";
 
 export default function SearchPersons() {
@@ -16,21 +17,32 @@ export default function SearchPersons() {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  
-useEffect(() => {
-  (async () => {
-    try {
-      const res = await branchesService.list({ limit: 200 });
-      const list = res?.data || res || [];
-      setBranches(Array.isArray(list) ? list : (list.data || []));
-    } catch (e) {
-      // im lặng - search vẫn chạy nếu không có branches
-      setBranches([]);
-    }
-  })();
-}, []);
+  const debouncedQ = useDebounce(q, 600);
 
-const canSearch = useMemo(() => q.trim().length > 0, [q]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await branchesService.list({ limit: 200 });
+        const list = res?.data || res || [];
+        setBranches(Array.isArray(list) ? list : (list.data || []));
+      } catch (e) {
+        // im lặng - search vẫn chạy nếu không có branches
+        setBranches([]);
+      }
+    })();
+  }, []);
+
+  const canSearch = useMemo(() => q.trim().length > 0, [q]);
+
+  useEffect(() => {
+    if (debouncedQ.trim()) {
+      run(1);
+    } else {
+      setItems([]);
+      setMeta(null);
+    }
+  }, [debouncedQ]);
 
   async function run(page = 1) {
     setErr("");

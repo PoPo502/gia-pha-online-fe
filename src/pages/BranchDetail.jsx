@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { branchesService } from "../services/branches.service.js";
-import { GitBranch, Users, Trash2, Plus, ArrowLeft, Shield } from "lucide-react";
+import { usersService } from "../services/users.service.js";
+import { useDebounce } from "../hooks/useDebounce.js";
+import { GitBranch, Users, Trash2, Plus, ArrowLeft, Shield, Search, X } from "lucide-react";
 
 export default function BranchDetail() {
     const { id } = useParams();
@@ -11,6 +13,16 @@ export default function BranchDetail() {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
+
+    // Add Member states
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [foundUsers, setFoundUsers] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [selectedRole, setSelectedRole] = useState("viewer");
+
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
     async function loadData() {
         setLoading(true);
@@ -30,6 +42,14 @@ export default function BranchDetail() {
 
     useEffect(() => { loadData(); }, [id]);
 
+    useEffect(() => {
+        if (debouncedSearchTerm) {
+            handleSearch(debouncedSearchTerm);
+        } else {
+            setFoundUsers([]);
+        }
+    }, [debouncedSearchTerm]);
+
     const handleRemoveMember = async (userId) => {
         if (!confirm("Bạn có chắc muốn xóa thành viên này khỏi chi nhánh?")) return;
         try {
@@ -38,6 +58,36 @@ export default function BranchDetail() {
             loadData();
         } catch (e) {
             alert("Lỗi: " + e.message);
+        }
+    };
+
+    const handleSearch = async (term) => {
+        const query = term || searchTerm;
+        if (!query.trim()) return;
+        setSearching(true);
+        try {
+            const res = await usersService.list({ search: query });
+            setFoundUsers(res.data || res || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleAddMember = async (userId) => {
+        setSubmitting(true);
+        try {
+            await branchesService.addMember(id, { userId, roleInBranch: selectedRole });
+            alert("Đã thêm thành viên quản trị!");
+            setShowAddModal(false);
+            setSearchTerm("");
+            setFoundUsers([]);
+            loadData();
+        } catch (e) {
+            alert("Lỗi khi thêm thành viên: " + e.message);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -73,7 +123,9 @@ export default function BranchDetail() {
                                 <div style={{ fontWeight: 700, fontSize: 18, display: "flex", gap: 8, alignItems: "center" }}>
                                     <Users size={20} color="var(--primary)" /> Danh sách Thành viên Quản trị
                                 </div>
-                                <button className="btn small primary"><Plus size={16} /> Thêm người quản lý</button>
+                                <button className="btn small primary" onClick={() => setShowAddModal(true)}>
+                                    <Plus size={16} /> Thêm người quản lý
+                                </button>
                             </div>
 
                             <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
@@ -85,9 +137,9 @@ export default function BranchDetail() {
                                         {members.length === 0 ? (
                                             <tr><td colSpan="3" style={{ textAlign: "center", padding: 20 }}>Chưa có thành viên nào.</td></tr>
                                         ) : members.map((m, index) => {
-                                            const userObj = m.userId || {}; 
+                                            const userObj = m.userId || {};
                                             const uid = userObj._id || userObj;
-                                            
+
                                             return (
                                                 <tr key={uid || index}>
                                                     <td style={{ fontWeight: 600 }}>
@@ -102,8 +154,8 @@ export default function BranchDetail() {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <button 
-                                                            onClick={() => handleRemoveMember(uid)} 
+                                                        <button
+                                                            onClick={() => handleRemoveMember(uid)}
                                                             style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}
                                                             title="Gỡ thành viên"
                                                         >
@@ -136,6 +188,69 @@ export default function BranchDetail() {
                     </aside>
                 </div>
             </div>
+
+            {/* Modal Add Member */}
+            {showAddModal && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 500, maxWidth: "95vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+                        <div className="row" style={{ justifyContent: "space-between", marginBottom: 20 }}>
+                            <div className="title-md">Thêm thành viên quản trị</div>
+                            <button onClick={() => setShowAddModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-light)" }}><X size={24} /></button>
+                        </div>
+
+                        <div className="stack" style={{ gap: 16 }}>
+                            <div className="row" style={{ gap: 10 }}>
+                                <div style={{ position: "relative", flex: 1 }}>
+                                    <Search size={18} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+                                    <input
+                                        placeholder="Tên hoặc email người dùng..."
+                                        className="input"
+                                        style={{ paddingLeft: 40 }}
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 12 }}>
+                                {foundUsers.length === 0 ? (
+                                    <div style={{ padding: 20, textAlign: "center", color: "var(--text-light)" }}>
+                                        {searching ? "Đang tìm kiếm..." : "Nhập thông tin để tìm kiếm người dùng"}
+                                    </div>
+                                ) : (
+                                    <div className="stack">
+                                        {foundUsers.map(u => (
+                                            <div key={u._id || u.id} className="row" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", justifyContent: "space-between" }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 600 }}>{u.fullName}</div>
+                                                    <div className="small" style={{ color: "var(--muted)" }}>{u.email}</div>
+                                                </div>
+                                                <div className="row" style={{ gap: 8 }}>
+                                                    <select
+                                                        className="select small"
+                                                        style={{ width: 100, padding: "4px 8px" }}
+                                                        value={selectedRole}
+                                                        onChange={e => setSelectedRole(e.target.value)}
+                                                    >
+                                                        <option value="viewer">Viewer</option>
+                                                        <option value="editor">Editor</option>
+                                                        <option value="owner">Owner</option>
+                                                    </select>
+                                                    <button
+                                                        className="btn primary small"
+                                                        disabled={submitting}
+                                                        onClick={() => handleAddMember(u._id || u.id)}
+                                                    >Thêm</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

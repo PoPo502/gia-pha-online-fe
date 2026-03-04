@@ -5,13 +5,22 @@ import { Link } from "react-router-dom";
 import { Activity, Users, GitBranch, ShieldAlert, History, Megaphone, Database, Plus, Search } from "lucide-react";
 import { branchesService } from "../services/branches.service.js";
 import { systemService } from "../services/system.service.js";
+import { useDebounce } from "../hooks/useDebounce.js";
 
 export default function HomeSuperAdmin() {
     const { me } = useAuth();
     const [stats, setStats] = useState({ branches: 0, users: 0, pendingReports: 0 });
     const [loading, setLoading] = useState(true);
     const [health, setHealth] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const debouncedSearch = useDebounce(searchTerm, 500);
     const [branchesList, setBranchesList] = useState([]);
+
+    // Create Branch modal states
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newBranchName, setNewBranchName] = useState("");
+    const [newBranchDesc, setNewBranchDesc] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
     useEffect(() => {
         async function loadSystemStats() {
             try {
@@ -20,7 +29,7 @@ export default function HomeSuperAdmin() {
                     branchesService.list(),
                     systemService.health()
                 ]);
-                
+
                 // Lấy data thật và lưu vào state
                 const fetchedBranches = branchesRes?.data || branchesRes || [];
                 setBranchesList(fetchedBranches);
@@ -39,6 +48,39 @@ export default function HomeSuperAdmin() {
         }
         loadSystemStats();
     }, []);
+
+    useEffect(() => {
+        const fetchFiltered = async () => {
+            try {
+                const res = await branchesService.list({ search: debouncedSearch });
+                setBranchesList(res?.data || res || []);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchFiltered();
+    }, [debouncedSearch]);
+
+    const handleCreateBranch = async (e) => {
+        e.preventDefault();
+        if (!newBranchName.trim()) return;
+        setIsCreating(true);
+        try {
+            await branchesService.create({ name: newBranchName, description: newBranchDesc });
+            alert("Đã tạo Dòng họ / Chi nhánh thành công!");
+            setShowAddModal(false);
+            setNewBranchName("");
+            setNewBranchDesc("");
+            // Refresh list
+            const res = await branchesService.list();
+            setBranchesList(res?.data || res || []);
+            setStats(s => ({ ...s, branches: (res?.data || res || []).length }));
+        } catch (error) {
+            alert("Lỗi khi tạo chi nhánh: " + error.message);
+        } finally {
+            setIsCreating(false);
+        }
+    };
 
     return (
         <>
@@ -88,9 +130,16 @@ export default function HomeSuperAdmin() {
                                 <div style={{ display: "flex", gap: 12 }}>
                                     <div style={{ position: "relative" }}>
                                         <Search size={18} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-                                        <input placeholder="Tìm kiếm họ tộc..." style={{ padding: "10px 10px 10px 40px", borderRadius: 12, border: "1px solid var(--border)", background: "#f8f9fa" }} />
+                                        <input
+                                            placeholder="Tìm kiếm họ tộc..."
+                                            style={{ padding: "10px 10px 10px 40px", borderRadius: 12, border: "1px solid var(--border)", background: "#f8f9fa" }}
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
                                     </div>
-                                    <button className="btn primary small" style={{ borderRadius: 12 }}><Plus size={18} /> Tạo mới</button>
+                                    <button className="btn primary small" style={{ borderRadius: 12 }} onClick={() => setShowAddModal(true)}>
+                                        <Plus size={18} /> Tạo mới
+                                    </button>
                                 </div>
                             </div>
 
@@ -149,6 +198,45 @@ export default function HomeSuperAdmin() {
                     </div>
                 </div>
             </div>
+
+            {/* Create Branch Modal */}
+            {showAddModal && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 400, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+                        <div className="title-md" style={{ marginBottom: 16 }}>
+                            Tạo Dòng họ / Chi nhánh mới
+                        </div>
+                        <form onSubmit={handleCreateBranch} className="stack" style={{ gap: 16 }}>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Tên Chi nhánh/Dòng họ *</label>
+                                <input
+                                    required
+                                    className="input"
+                                    placeholder="Ví dụ: Dòng họ Nguyễn Bá..."
+                                    value={newBranchName}
+                                    onChange={(e) => setNewBranchName(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Mô tả (Tuỳ chọn)</label>
+                                <textarea
+                                    className="input"
+                                    placeholder="Thông tin thêm..."
+                                    rows={3}
+                                    value={newBranchDesc}
+                                    onChange={(e) => setNewBranchDesc(e.target.value)}
+                                />
+                            </div>
+                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
+                                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hủy</button>
+                                <button className="btn primary" type="submit" disabled={isCreating || !newBranchName.trim()}>
+                                    {isCreating ? "Đang tạo..." : "Tạo mới"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

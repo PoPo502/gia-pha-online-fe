@@ -1,0 +1,341 @@
+﻿import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import { useAuth } from "../store/auth.jsx";
+import { Calendar, Video, Plus, Users, Clock, MapPin, Radio } from "lucide-react";
+import { eventsService } from "../services/events.service.js";
+import { branchesService } from "../services/branches.service.js";
+import { mockStreams } from "../dev/mockData.js";
+
+
+export default function Events() {
+    const { me } = useAuth();
+    const isAdmin = ["admin", "editor", "tree_admin", "super_admin"].includes(String(me?.role || "").toLowerCase());
+
+    const [activeTab, setActiveTab] = useState("events"); // events | live
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [registeredEvents, setRegisteredEvents] = useState({});
+
+    const [events, setEvents] = useState([]);
+    const [streams, setStreams] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [approvingId, setApprovingId] = useState(null);
+
+    // PhÃ¢n loáº¡i sá»± kiá»‡n theo tráº¡ng thÃ¡i
+    const pendingEvents = events.filter(e => !e.status || e.status === "pending");
+    const approvedEvents = events.filter(e => e.status === "approved" || e.status === "active");
+    // Náº¿u khÃ´ng cÃ³ trÆ°á»ng status, coi táº¥t cáº£ lÃ  approved cho user bÃ¬nh thÆ°á»ng
+    const userEvents = isAdmin ? approvedEvents : events;
+
+    useEffect(() => {
+        async function fetchData() {
+            setLoading(true);
+            try {
+                const data = await eventsService.list();
+                setEvents(data.data || data || []);
+
+                // Fetch media for streams if possible
+                // const mediaData = await mediaService.list();
+                // setStreams(mediaData.data || mediaData || []);
+                setStreams(mockStreams); // Keep mock for streams for now as it's more UX focused
+            } catch (e) {
+                console.error("Failed to fetch events", e);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    const [branches, setBranches] = useState([]);
+    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await branchesService.list({ limit: 200 });
+                const list = res?.data || res || [];
+                const arr = Array.isArray(list) ? list : (list.data || []);
+                setBranches(arr);
+                // set default branchId
+                if (arr.length && !formData.branchId) {
+                    setFormData((s) => ({ ...s, branchId: arr[0]._id }));
+                }
+            } catch (e) {
+                setBranches([]);
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleApproveEvent = async (eventId) => {
+        setApprovingId(eventId);
+        try {
+            await eventsService.update(eventId, { status: "approved" });
+            // Sau khi duyá»‡t xong, cáº­p nháº­t status trong local state â†’ biáº¿n máº¥t khá»i hÃ ng chá»
+            setEvents(prev => prev.map(e =>
+                (e._id || e.id) === eventId ? { ...e, status: "approved" } : e
+            ));
+        } catch (e) {
+            alert("Lá»—i khi duyá»‡t sá»± kiá»‡n: " + e.message);
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleDeleteEvent = async (eventId) => {
+        if (!window.confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a sá»± kiá»‡n nÃ y?")) return;
+        try {
+            await eventsService.remove(eventId);
+            setEvents(prev => prev.filter(e => (e._id || e.id) !== eventId));
+        } catch (e) {
+            alert("Lá»—i khi xÃ³a sá»± kiá»‡n: " + e.message);
+        }
+    };
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        try {
+            await eventsService.create({
+                branchId: formData.branchId,
+                title: formData.title,
+                type: formData.type || "other",
+                eventDate: formData.eventDate ? new Date(formData.eventDate).toISOString() : null,
+                location: formData.location || "",
+                description: formData.description || "",
+                privacy: formData.privacy || "internal",
+                personIds: (formData.personIdsText || "")
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+            });
+            alert("ÄÃ£ táº¡o sá»± kiá»‡n thÃ nh cÃ´ng!");
+            const data = await eventsService.list();
+            setEvents(data.data || data || []);
+            setShowAddModal(false);
+        } catch (err) {
+            alert("Lá»—i khi táº¡o sá»± kiá»‡n: " + err.message);
+        }
+    };
+
+    return (
+        <>
+            <Topbar />
+            <div className="container" style={{ maxWidth: 1000 }}>
+
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
+                    <div>
+                        <div className="title-md">Sá»± kiá»‡n & PhÃ¡t trá»±c tiáº¿p</div>
+                        <div className="small">Quáº£n lÃ½ ngÃ y giá»—, há»p máº·t vÃ  káº¿t ná»‘i trá»±c tuyáº¿n</div>
+                    </div>
+                    {isAdmin && (
+                        <button className="btn primary" onClick={() => setShowAddModal(true)}>
+                            <Plus size={18} style={{ marginRight: 6 }} /> Táº¡o má»›i
+                        </button>
+                    )}
+                </div>
+
+                {/* Tabs */}
+                <div style={{ display: "flex", gap: 16, borderBottom: "1px solid var(--border)", marginBottom: 24 }}>
+                    <button
+                        onClick={() => setActiveTab("events")}
+                        style={{
+                            padding: "12px 24px", background: "none", border: "none",
+                            borderBottom: activeTab === "events" ? "3px solid var(--primary)" : "3px solid transparent",
+                            color: activeTab === "events" ? "var(--primary)" : "var(--text-light)",
+                            fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8
+                        }}
+                    >
+                        <Calendar size={18} /> Lá»‹ch Sá»± kiá»‡n {isAdmin && approvedEvents.length > 0 && <span style={{ background: "var(--primary-light)", color: "var(--primary)", borderRadius: 12, padding: "2px 8px", fontSize: 12 }}>{approvedEvents.length}</span>}
+                    </button>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setActiveTab("pending")}
+                            style={{
+                                padding: "12px 24px", background: "none", border: "none",
+                                borderBottom: activeTab === "pending" ? "3px solid var(--primary)" : "3px solid transparent",
+                                color: activeTab === "pending" ? "var(--primary)" : "var(--text-light)",
+                                fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8
+                            }}
+                        >
+                            Chá» duyá»‡t
+                            {pendingEvents.length > 0 && (
+                                <span style={{ background: "var(--danger)", color: "#fff", borderRadius: 12, padding: "2px 8px", fontSize: 12 }}>{pendingEvents.length}</span>
+                            )}
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setActiveTab("live")}
+                        style={{
+                            padding: "12px 24px", background: "none", border: "none",
+                            borderBottom: activeTab === "live" ? "3px solid var(--primary)" : "3px solid transparent",
+                            color: activeTab === "live" ? "var(--primary)" : "var(--text-light)",
+                            fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8
+                        }}
+                    >
+                        <Video size={18} /> PhÃ¡t trá»±c tiáº¿p
+                    </button>
+                </div>
+
+                <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>
+
+                    <div style={{ flex: 2 }}>
+                        {/* Tab: Sá»± kiá»‡n Ä‘Ã£ duyá»‡t (táº¥t cáº£ user) */}
+                        {activeTab === "events" && (
+                            <div className="stack" style={{ gap: 16 }}>
+                                {(isAdmin ? approvedEvents : userEvents).map(ev => (
+                                    <div key={ev._id || ev.id} className="card">
+                                        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                                            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--primary)" }}>{ev.title}</div>
+                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                <span className="badge public" style={{ fontSize: 11 }}>âœ“ ÄÃ£ duyá»‡t</span>
+                                                <span className="badge internal">{ev.type || "Sá»± kiá»‡n"}</span>
+                                            </div>
+                                        </div>
+                                        <div className="stack" style={{ gap: 8, color: "var(--text-dark)" }}>
+                                            <div className="row" style={{ gap: 8 }}><Calendar size={16} color="var(--text-light)" /> <strong>{ev.date || ev.eventDate ? new Date(ev.date || ev.eventDate).toLocaleDateString('vi-VN') : "N/A"}</strong></div>
+                                            <div className="row" style={{ gap: 8 }}><MapPin size={16} color="var(--text-light)" /> <span>{ev.location || "ChÆ°a cáº­p nháº­t Ä‘á»‹a Ä‘iá»ƒm"}</span></div>
+                                            <p className="small" style={{ color: "var(--text-light)" }}>{ev.description}</p>
+                                        </div>
+                                        <div className="row" style={{ marginTop: 16, gap: 12 }}>
+                                            {!isAdmin && (
+                                                !registeredEvents[ev._id || ev.id] ? (
+                                                    <button className="btn primary" onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: true }))}>
+                                                        ÄÄƒng kÃ½ tham gia
+                                                    </button>
+                                                ) : (
+                                                    <button className="btn" style={{ background: "#e0f2fe", color: "var(--primary)", fontWeight: "bold" }} onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: false }))}>
+                                                        âœ“ ÄÃ£ Ä‘Äƒng kÃ½
+                                                    </button>
+                                                )
+                                            )}
+                                            {isAdmin && (
+                                                <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>XÃ³a</button>
+                                            )}
+                                            <button className="btn outline">Xem chi tiáº¿t</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(isAdmin ? approvedEvents : userEvents).length === 0 && !loading && (
+                                    <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-light)" }}>ChÆ°a cÃ³ sá»± kiá»‡n nÃ o Ä‘Æ°á»£c duyá»‡t.</div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Tab: HÃ ng chá» duyá»‡t (chá»‰ admin) */}
+                        {activeTab === "pending" && isAdmin && (
+                            <div className="stack" style={{ gap: 16 }}>
+                                {pendingEvents.length === 0 ? (
+                                    <div className="card" style={{ textAlign: "center", padding: 60, color: "var(--text-light)" }}>
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>âœ…</div>
+                                        <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Sáº¡ch hÃ ng chá»!</div>
+                                        <div className="small">KhÃ´ng cÃ³ sá»± kiá»‡n nÃ o Ä‘ang chá» duyá»‡t.</div>
+                                    </div>
+                                ) : pendingEvents.map(ev => (
+                                    <div key={ev._id || ev.id} className="card" style={{ borderLeft: "4px solid var(--primary)" }}>
+                                        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                                            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dark)" }}>{ev.title}</div>
+                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                <span className="badge sensitive" style={{ fontSize: 11 }}>Chá» duyá»‡t</span>
+                                                <span className="badge internal">{ev.type || "Sá»± kiá»‡n"}</span>
+                                            </div>
+                                        </div>
+                                        <div className="stack" style={{ gap: 8, color: "var(--text-dark)", marginBottom: 16 }}>
+                                            <div className="row" style={{ gap: 8 }}><Calendar size={16} color="var(--text-light)" /> <strong>{ev.date || ev.eventDate ? new Date(ev.date || ev.eventDate).toLocaleDateString('vi-VN') : "N/A"}</strong></div>
+                                            <div className="row" style={{ gap: 8 }}><MapPin size={16} color="var(--text-light)" /> <span>{ev.location || "ChÆ°a cáº­p nháº­t Ä‘á»‹a Ä‘iá»ƒm"}</span></div>
+                                            <p className="small" style={{ color: "var(--text-light)" }}>{ev.description}</p>
+                                        </div>
+                                        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", gap: 12 }}>
+                                            <button
+                                                className="btn primary"
+                                                disabled={approvingId === (ev._id || ev.id)}
+                                                onClick={() => handleApproveEvent(ev._id || ev.id)}
+                                            >
+                                                {approvingId === (ev._id || ev.id) ? "Äang duyá»‡t..." : "âœ“ Duyá»‡t sá»± kiá»‡n"}
+                                            </button>
+                                            <button
+                                                className="btn outline"
+                                                style={{ color: "var(--danger)", borderColor: "rgba(239,68,68,0.4)" }}
+                                                onClick={() => handleDeleteEvent(ev._id || ev.id)}
+                                            >
+                                                Tá»« chá»‘i
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {loading && <div className="small" style={{ textAlign: "center", padding: 40 }}>Äang táº£i sá»± kiá»‡n...</div>}
+
+                    </div>
+
+                    {activeTab === "live" && (
+                        <div className="stack" style={{ gap: 16 }}>
+                            {mockStreams.map(st => (
+                                <div key={st.id} className="card">
+                                    <div style={{ aspectRatio: "16/9", background: "var(--surface-hover)", borderRadius: "var(--radius-lg)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                                        {st.status === "live" ? (
+                                            <div style={{ position: "absolute", top: 12, left: 12, background: "var(--danger)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, animation: "pulse 2s infinite" }}>
+                                                <Radio size={14} /> TRá»°C TIáº¾P
+                                            </div>
+                                        ) : (
+                                            <div style={{ position: "absolute", top: 12, left: 12, background: "var(--text-light)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
+                                                ÄÃƒ Káº¾T THÃšC
+                                            </div>
+                                        )}
+
+                                        {st.status === "live" && <button className="avatar" style={{ width: 64, height: 64, background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)", color: "#fff", border: "2px solid #fff" }}><Video size={32} /></button>}
+                                        {st.status === "ended" && <div className="small" style={{ color: "var(--text-light)" }}>Video xem láº¡i Ä‘ang Ä‘Æ°á»£c xá»­ lÃ½</div>}
+                                    </div>
+
+                                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>{st.title}</div>
+                                    <div className="row" style={{ justifyContent: "space-between" }}>
+                                        <div className="small" style={{ color: "var(--text-light)" }}>ÄÄƒng bá»Ÿi: {st.user}</div>
+                                        <div className="row" style={{ gap: 8, color: "var(--text-light)" }}><Users size={16} /> <span>{st.viewers} ngÆ°á»i xem</span></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                    <div className="card" style={{ background: "var(--primary-light)", borderColor: "transparent" }}>
+                        <div className="row" style={{ gap: 12, marginBottom: 16 }}>
+                            <div className="avatar" style={{ background: "var(--primary)", color: "#fff", width: 40, height: 40 }}><Calendar size={20} /></div>
+                            <div style={{ fontWeight: 600, color: "var(--text-dark)" }}>Tiá»‡n Ã­ch ngÃ y thÃ¡ng</div>
+                        </div>
+                        <p className="small" style={{ marginBottom: 16 }}>Há»‡ thá»‘ng tá»± Ä‘á»™ng quy Ä‘á»•i ngÃ y giá»— tá»« Ã‚m lá»‹ch sang DÆ°Æ¡ng lá»‹ch vÃ o má»—i nÄƒm Ä‘á»ƒ nháº¯c nhá»Ÿ con chÃ¡u chuáº©n bá»‹.</p>
+                        <button className="btn outline" style={{ width: "100%", justifyContent: "center", background: "#fff" }}>Xem Lá»‹ch Ã‚m ToÃ n Táº­p</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+            {/* Add Modal */}
+            {showAddModal && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 500, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+                        <div className="title-md" style={{ marginBottom: 16 }}>Tao su kien hoac Phat truc tiep</div>
+                        <form onSubmit={handleCreate} className="stack" style={{ gap: 12 }}>
+                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
+                                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Huy</button>
+                                <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title}>Tao su kien</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+          70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+      `}</style>
+        </>
+    );
+}

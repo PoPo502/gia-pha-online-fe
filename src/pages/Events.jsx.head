@@ -1,0 +1,341 @@
+﻿import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import { useAuth } from "../store/auth.jsx";
+import { Calendar, Video, Plus, Users, Clock, MapPin, Radio } from "lucide-react";
+import { eventsService } from "../services/events.service.js";
+import { branchesService } from "../services/branches.service.js";
+import { mockStreams } from "../dev/mockData.js";
+
+
+export default function Events() {
+    const { me } = useAuth();
+    const [activeTab, setActiveTab] = useState("events"); // events | live
+    const [showAddModal, setShowAddModal] = useState(false);
+
+    const [events, setEvents] = useState([]);
+    const [streams, setStreams] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchData() {
+            setLoading(true);
+            try {
+                const data = await eventsService.list();
+                setEvents(data.data || data || []);
+
+                // Fetch media for streams if possible
+                // const mediaData = await mediaService.list();
+                // setStreams(mediaData.data || mediaData || []);
+                setStreams(mockStreams); // Keep mock for streams for now as it's more UX focused
+            } catch (e) {
+                console.error("Failed to fetch events", e);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    const [branches, setBranches] = useState([]);
+    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
+
+useEffect(() => {
+    (async () => {
+        try {
+            const res = await branchesService.list({ limit: 200 });
+            const list = res?.data || res || [];
+            const arr = Array.isArray(list) ? list : (list.data || []);
+            setBranches(arr);
+            // set default branchId
+            if (arr.length && !formData.branchId) {
+                setFormData((s) => ({ ...s, branchId: arr[0]._id }));
+            }
+        } catch (e) {
+            setBranches([]);
+        }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        try {
+            await eventsService.create({
+                branchId: formData.branchId,
+                title: formData.title,
+                type: formData.type || "other",
+                eventDate: formData.eventDate ? new Date(formData.eventDate).toISOString() : null,
+                location: formData.location || "",
+                description: formData.description || "",
+                privacy: formData.privacy || "internal",
+                personIds: (formData.personIdsText || "")
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+            });
+            alert("─É├ú tß║ío sß╗▒ kiß╗çn th├ánh c├┤ng!");
+            const data = await eventsService.list();
+            setEvents(data.data || data || []);
+            setShowAddModal(false);
+        } catch (err) {
+            alert("Lß╗ùi khi tß║ío sß╗▒ kiß╗çn: " + err.message);
+        }
+    };
+
+    return (
+        <>
+            <Topbar />
+            <div className="container" style={{ maxWidth: 1000 }}>
+
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
+                    <div>
+                        <div className="title-md">Sß╗▒ kiß╗çn & Ph├ít trß╗▒c tiß║┐p</div>
+                        <div className="small">Quß║ún l├╜ ng├áy giß╗ù, hß╗ìp mß║╖t v├á kß║┐t nß╗æi trß╗▒c tuyß║┐n</div>
+                    </div>
+                    {(["admin","editor"].includes(String(me?.role||"").toLowerCase()) || me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN") && (
+                        <button className="btn primary" onClick={() => setShowAddModal(true)}>
+                            <Plus size={18} style={{ marginRight: 6 }} /> Tß║ío mß╗¢i
+                        </button>
+                    )}
+                </div>
+
+                {/* Custom Tabs */}
+                <div style={{ display: "flex", gap: 16, borderBottom: "1px solid var(--border)", marginBottom: 24 }}>
+                    <button
+                        onClick={() => setActiveTab("events")}
+                        style={{
+                            padding: "12px 24px",
+                            background: "none",
+                            border: "none",
+                            borderBottom: activeTab === "events" ? "3px solid var(--primary)" : "3px solid transparent",
+                            color: activeTab === "events" ? "var(--primary)" : "var(--text-light)",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8
+                        }}
+                    >
+                        <Calendar size={18} /> Lß╗ïch Sß╗▒ kiß╗çn
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("live")}
+                        style={{
+                            padding: "12px 24px",
+                            background: "none",
+                            border: "none",
+                            borderBottom: activeTab === "live" ? "3px solid var(--primary)" : "3px solid transparent",
+                            color: activeTab === "live" ? "var(--primary)" : "var(--text-light)",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8
+                        }}
+                    >
+                        <Video size={18} /> Ph├ít trß╗▒c tiß║┐p
+                    </button>
+                </div>
+
+                <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>
+
+                    <div style={{ flex: 2 }}>
+                        {activeTab === "events" && (
+                            <div className="stack" style={{ gap: 16 }}>
+                                {events.map(ev => (
+                                    <div key={ev._id || ev.id} className="card">
+                                        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                                            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--primary)" }}>{ev.title}</div>
+                                            <span className="badge internal">{ev.type || "Sß╗▒ kiß╗çn"}</span>
+                                        </div>
+                                        <div className="stack" style={{ gap: 8, color: "var(--text-dark)" }}>
+                                            <div className="row" style={{ gap: 8 }}><Calendar size={16} color="var(--text-light)" /> <strong>{ev.date ? new Date(ev.date).toLocaleDateString('vi-VN') : "N/A"}</strong></div>
+                                            <div className="row" style={{ gap: 8 }}><MapPin size={16} color="var(--text-light)" /> <span>{ev.location || "Ch╞░a cß║¡p nhß║¡t ─æß╗ïa ─æiß╗âm"}</span></div>
+                                            <p className="small" style={{ color: "var(--text-light)" }}>{ev.description}</p>
+                                        </div>
+                                        <div className="row" style={{ marginTop: 16, gap: 12 }}>
+                                            <button className="btn primary">─É─âng k├╜ tham gia</button>
+                                            <button className="btn outline">Xem chi tiß║┐t</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {events.length === 0 && !loading && (
+                                    <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-light)" }}>Ch╞░a c├│ sß╗▒ kiß╗çn n├áo ─æ╞░ß╗úc l├¬n lß╗ïch.</div>
+                                )}
+                                {loading && <div className="small" style={{ textAlign: "center", padding: 40 }}>─Éang tß║úi sß╗▒ kiß╗çn...</div>}
+
+                            </div>
+                        )}
+
+                        {activeTab === "live" && (
+                            <div className="stack" style={{ gap: 16 }}>
+                                {mockStreams.map(st => (
+                                    <div key={st.id} className="card">
+                                        <div style={{ aspectRatio: "16/9", background: "var(--surface-hover)", borderRadius: "var(--radius-lg)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                                            {st.status === "live" ? (
+                                                <div style={{ position: "absolute", top: 12, left: 12, background: "var(--danger)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, animation: "pulse 2s infinite" }}>
+                                                    <Radio size={14} /> TRß╗░C TIß║╛P
+                                                </div>
+                                            ) : (
+                                                <div style={{ position: "absolute", top: 12, left: 12, background: "var(--text-light)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
+                                                    ─É├â Kß║╛T TH├ÜC
+                                                </div>
+                                            )}
+
+                                            {st.status === "live" && <button className="avatar" style={{ width: 64, height: 64, background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)", color: "#fff", border: "2px solid #fff" }}><Video size={32} /></button>}
+                                            {st.status === "ended" && <div className="small" style={{ color: "var(--text-light)" }}>Video xem lß║íi ─æang ─æ╞░ß╗úc xß╗¡ l├╜</div>}
+                                        </div>
+
+                                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>{st.title}</div>
+                                        <div className="row" style={{ justifyContent: "space-between" }}>
+                                            <div className="small" style={{ color: "var(--text-light)" }}>─É─âng bß╗ƒi: {st.user}</div>
+                                            <div className="row" style={{ gap: 8, color: "var(--text-light)" }}><Users size={16} /> <span>{st.viewers} ng╞░ß╗¥i xem</span></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <div className="card" style={{ background: "var(--primary-light)", borderColor: "transparent" }}>
+                            <div className="row" style={{ gap: 12, marginBottom: 16 }}>
+                                <div className="avatar" style={{ background: "var(--primary)", color: "#fff", width: 40, height: 40 }}><Calendar size={20} /></div>
+                                <div style={{ fontWeight: 600, color: "var(--text-dark)" }}>Tiß╗çn ├¡ch ng├áy th├íng</div>
+                            </div>
+                            <p className="small" style={{ marginBottom: 16 }}>Hß╗ç thß╗æng tß╗▒ ─æß╗Öng quy ─æß╗òi ng├áy giß╗ù tß╗½ ├ém lß╗ïch sang D╞░╞íng lß╗ïch v├áo mß╗ùi n─âm ─æß╗â nhß║»c nhß╗ƒ con ch├íu chuß║⌐n bß╗ï.</p>
+                            <button className="btn outline" style={{ width: "100%", justifyContent: "center", background: "#fff" }}>Xem Lß╗ïch ├ém To├án Tß║¡p</button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {/* Add Modal */}
+            {showAddModal && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 500, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+                        <div className="title-md" style={{ marginBottom: 16 }}>
+                            Tß║ío sß╗▒ kiß╗çn hoß║╖c Ph├ít trß╗▒c tiß║┐p
+                        </div>
+
+                        <form onSubmit={handleCreate} className="stack" style={{ gap: 12 }}>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Chi nh├ính (Branch)</label>
+                                <select
+                                    className="select"
+                                    required
+                                    value={formData.branchId}
+                                    onChange={(e) => setFormData((s) => ({ ...s, branchId: e.target.value }))}
+                                >
+                                    {branches.length === 0 && <option value="">(Ch╞░a c├│ chi nh├ính)</option>}
+                                    {branches.map((b) => (
+                                        <option key={b._id} value={b._id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Ti├¬u ─æß╗ü</label>
+                                <input
+                                    required
+                                    className="input"
+                                    placeholder="Nhß║¡p ti├¬u ─æß╗ü..."
+                                    value={formData.title}
+                                    onChange={(e) => setFormData((s) => ({ ...s, title: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="row" style={{ gap: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Loß║íi sß╗▒ kiß╗çn</label>
+                                    <select
+                                        className="select"
+                                        value={formData.type}
+                                        onChange={(e) => setFormData((s) => ({ ...s, type: e.target.value }))}
+                                    >
+                                        <option value="birth">Sinh</option>
+                                        <option value="death">Mß║Ñt</option>
+                                        <option value="marriage">Kß║┐t h├┤n</option>
+                                        <option value="anniversary">Giß╗ù / Kß╗╖ niß╗çm</option>
+                                        <option value="other">Kh├íc</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Thß╗¥i gian</label>
+                                    <input
+                                        className="input"
+                                        type="datetime-local"
+                                        value={formData.eventDate}
+                                        onChange={(e) => setFormData((s) => ({ ...s, eventDate: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="row" style={{ gap: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Privacy</label>
+                                    <select
+                                        className="select"
+                                        value={formData.privacy}
+                                        onChange={(e) => setFormData((s) => ({ ...s, privacy: e.target.value }))}
+                                    >
+                                        <option value="public">public</option>
+                                        <option value="internal">internal</option>
+                                        <option value="sensitive">sensitive</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Person IDs (tuß╗│ chß╗ìn)</label>
+                                    <input
+                                        className="input"
+                                        placeholder="vd: 65f..., 65a..., ..."
+                                        value={formData.personIdsText}
+                                        onChange={(e) => setFormData((s) => ({ ...s, personIdsText: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>─Éß╗ïa ─æiß╗âm</label>
+                                <input
+                                    className="input"
+                                    placeholder="─Éß╗ïa ─æiß╗âm..."
+                                    value={formData.location}
+                                    onChange={(e) => setFormData((s) => ({ ...s, location: e.target.value }))}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>M├┤ tß║ú</label>
+                                <textarea
+                                    className="input"
+                                    placeholder="M├┤ tß║ú..."
+                                    rows={4}
+                                    value={formData.description}
+                                    onChange={(e) => setFormData((s) => ({ ...s, description: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
+                                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hß╗ºy</button>
+                                <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title}>
+                                    Tß║ío sß╗▒ kiß╗çn
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+          70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+      `}</style>
+        </>
+    );
+}

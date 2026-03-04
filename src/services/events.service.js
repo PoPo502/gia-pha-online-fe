@@ -23,6 +23,11 @@ export const eventsService = {
     const res = await api.put(`/events/${id}`, payload);
     return unwrap(res);
   },
+  async updateStatus(id, status) {
+    if (DEV_BYPASS_AUTH) return { id, status };
+    const res = await api.put(`/events/${id}/status`, { status });
+    return unwrap(res);
+  },
   async remove(id) {
     if (DEV_BYPASS_AUTH) return { success: true };
     const res = await api.delete(`/events/${id}`);
