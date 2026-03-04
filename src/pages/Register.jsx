@@ -34,19 +34,31 @@ export default function Register() {
   return (
     <>
       <Topbar />
-      <div className="auth-wrap">
-        <div className="auth-card" style={{ maxWidth: 420 }}>
-          <div className="auth-title">Đăng ký tài khoản</div>
-          <div className="card" style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.2)", padding: 20, textAlign: "center", marginBottom: 24 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-            <div style={{ fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>Hệ thống không cho phép đăng ký tự do</div>
-            <div className="small" style={{ color: "var(--text-light)", lineHeight: 1.6 }}>
-              Vui lòng liên hệ Admin hoặc Trưởng họ của bạn để được cấp tài khoản thành viên.
+      <div className="auth-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px" }}>
+        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", textAlign: "center", borderRadius: 24 }}>
+          <div className="auth-title" style={{ marginBottom: 32, fontSize: 28, fontWeight: 900 }}>Đăng ký tài khoản</div>
+
+          <div style={{
+            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03))",
+            border: "1px solid rgba(245, 158, 11, 0.15)",
+            padding: "40px 28px",
+            borderRadius: 24,
+            marginBottom: 40,
+            boxShadow: "0 10px 30px rgba(245, 158, 11, 0.05)"
+          }}>
+            <div style={{ fontSize: 64, marginBottom: 24 }}>🔒</div>
+            <div style={{ fontWeight: 800, color: "var(--text-dark)", fontSize: 20, marginBottom: 16, lineHeight: 1.4 }}>Hệ thống không cho phép đăng ký tự do</div>
+            <div className="small" style={{ color: "var(--text-light)", lineHeight: 1.8, fontSize: 15 }}>
+              Nhằm bảo mật thông tin dòng họ, vui lòng liên hệ trực tiếp với <strong>Admin</strong> hoặc <strong>Trưởng họ</strong> để được cấp tài khoản thành viên chính thức.
             </div>
           </div>
 
-          <div style={{ textAlign: "center" }}>
-            <Link to="/login" className="btn primary" style={{ width: "100%", justifyContent: "center" }}>Quay lại đăng nhập</Link>
+          <Link to="/login" className="btn primary" style={{ width: "100%", padding: "16px", justifyContent: "center", borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "0 8px 20px rgba(238, 77, 45, 0.2)" }}>
+            Quay lại đăng nhập
+          </Link>
+
+          <div style={{ marginTop: 32, fontSize: 14, color: "var(--muted)", fontWeight: 500 }}>
+            Gia Phả Việt Online • Bảo mật & Huyết thống
           </div>
         </div>
       </div>

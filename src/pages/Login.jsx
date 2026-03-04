@@ -32,18 +32,19 @@ export default function Login() {
   return (
     <>
       <Topbar />
-      <div className="auth-wrap">
-        <div className="auth-card" style={{ maxWidth: 420 }}>
-          <div className="auth-title">Đăng nhập</div>
-          <div className="small" style={{ textAlign: "center", marginBottom: 24, color: "var(--text-light)" }}>
-            Chào mừng trở lại! Đăng nhập để truy cập Gia phả của bạn.
+      <div className="auth-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px" }}>
+        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", borderRadius: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.06)" }}>
+          <div className="auth-title" style={{ marginBottom: 12, fontSize: 28, fontWeight: 900 }}>Đăng nhập</div>
+          <div className="small" style={{ textAlign: "center", marginBottom: 36, color: "var(--text-light)", fontSize: 15 }}>
+            Chào mừng trở lại! Vui lòng nhập mã ID để truy cập.
           </div>
 
-          <form className="stack" onSubmit={onSubmit}>
+          <form className="stack" onSubmit={onSubmit} style={{ gap: 20 }}>
             <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Tên đăng nhập / Mã ID</div>
+              <div className="small" style={{ marginBottom: 8, fontWeight: 600, color: "var(--text-dark)" }}>Tên đăng nhập / Mã ID</div>
               <input
                 className="input"
+                style={{ borderRadius: 12, padding: "14px 16px" }}
                 placeholder="VD: NG05001"
                 value={form.email}
                 onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
@@ -52,9 +53,10 @@ export default function Login() {
             </div>
 
             <div>
-              <div className="small" style={{ marginBottom: 6, fontWeight: 500, color: "var(--text-dark)" }}>Mật khẩu</div>
+              <div className="small" style={{ marginBottom: 8, fontWeight: 600, color: "var(--text-dark)" }}>Mật khẩu</div>
               <input
                 className="input"
+                style={{ borderRadius: 12, padding: "14px 16px" }}
                 placeholder="••••••••"
                 type="password"
                 value={form.password}
@@ -64,60 +66,55 @@ export default function Login() {
             </div>
 
             {DEV_BYPASS_AUTH && (
-              <div style={{ padding: 16, background: "var(--primary-light)", borderRadius: 12, marginBottom: 16, border: "1px solid var(--primary)" }}>
-                <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 8 }}>CHẾ ĐỘ DEV: CHỌN QUYỀN TRUY CẬP</div>
+              <div style={{ padding: 20, background: "var(--primary-light)", borderRadius: 16, border: "2px dashed var(--primary)" }}>
+                <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 12, letterSpacing: "0.5px" }}>MODE DEV: QUYỀN TRUY CẬP</div>
                 <select
                   className="input"
                   value={form.role || "SUPER_ADMIN"}
                   onChange={(e) => setForm(s => ({ ...s, role: e.target.value }))}
-                  style={{ background: "#fff" }}
+                  style={{ background: "#fff", borderRadius: 10 }}
                 >
                   <option value="SUPER_ADMIN">Admin Hệ Thống (Toàn quyền)</option>
                   <option value="TREE_ADMIN">Admin Tree (Kiểm duyệt bài)</option>
                   <option value="USER">User (Thành viên xem cây)</option>
                 </select>
-                <div className="small" style={{ marginTop: 8, fontSize: 11 }}>Bạn có thể nhập bất kỳ email/pass nào để đăng nhập.</div>
               </div>
             )}
 
-            <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 14 }}>
+            <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "0 8px 20px rgba(238, 77, 45, 0.2)" }}>
               {loading ? "Đang xử lý..." : (DEV_BYPASS_AUTH ? "Đăng nhập (Phát triển)" : "Đăng nhập hệ thống")}
             </button>
 
             {err && (
               <div style={{
-                color: "var(--danger)", background: "rgba(239, 68, 68, 0.1)",
-                padding: "10px", borderRadius: "8px", textAlign: "center", fontSize: 13, border: "1px solid rgba(239, 68, 68, 0.2)"
+                color: "var(--danger)", background: "rgba(239, 68, 68, 0.08)",
+                padding: "14px", borderRadius: "12px", textAlign: "center", fontSize: 14, border: "1px solid rgba(239, 68, 68, 0.15)", fontWeight: 500
               }}>
                 {err}
               </div>
             )}
           </form>
 
-          <div style={{ display: "flex", alignItems: "center", margin: "24px 0", color: "var(--text-light)" }}>
+          <div style={{ display: "flex", alignItems: "center", margin: "40px 0 32px", color: "var(--text-light)" }}>
             <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-            <div style={{ margin: "0 12px", fontSize: 13, fontWeight: 500 }}>HOẶC ĐĂNG NHẬP BẰNG</div>
+            <div style={{ margin: "0 16px", fontSize: 13, fontWeight: 600, letterSpacing: "1px", color: "var(--muted)" }}>HOẶC TIẾP TỤC VỚI</div>
             <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
           </div>
 
-          <div className="stack" style={{ gap: 12 }}>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/google`} className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10, textDecoration: "none" }}>
+          <div className="stack" style={{ gap: 12, marginBottom: 8 }}>
+            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/google`} className="btn outline" style={{ width: "100%", padding: 14, justifyContent: "center", gap: 10, textDecoration: "none", borderRadius: 12 }}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="18" height="18" />
-              Tiếp tục với Google
+              Google
             </a>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/facebook`} className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10, textDecoration: "none" }}>
+            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/facebook`} className="btn outline" style={{ width: "100%", padding: 14, justifyContent: "center", gap: 10, textDecoration: "none", borderRadius: 12 }}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg" alt="Facebook" width="18" height="18" />
-              Tiếp tục với Facebook
+              Facebook
             </a>
-            <button className="btn outline" style={{ width: "100%", padding: 12, justifyContent: "center", gap: 10 }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" width="16" height="18" />
-              Tiếp tục với Apple
-            </button>
           </div>
 
-          <div className="small" style={{ textAlign: "center", marginTop: 24, padding: "16px 0", borderTop: "1px solid var(--border)" }}>
+          <div className="small" style={{ textAlign: "center", marginTop: 40, padding: "24px 0 0", borderTop: "1px solid var(--border)", color: "var(--text-light)" }}>
             Chưa có tài khoản?{" "}
-            <Link to="/register" style={{ color: "var(--primary)", fontWeight: 600 }}>Đăng ký ngay</Link>
+            <Link to="/register" style={{ color: "var(--primary)", fontWeight: 700 }}>Yêu cầu cấp tài khoản</Link>
           </div>
         </div>
       </div>
