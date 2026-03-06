@@ -4,7 +4,8 @@ import Topbar from "../components/Topbar.jsx";
 import ConfirmModal from "../components/ConfirmModal.jsx";
 import { personsService } from "../services/persons.service.js";
 import { usersService } from "../services/users.service.js";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+import { formatError } from "../lib/api.js";
+
 import { useAuth } from "../store/auth.jsx";
 import { Camera, Edit2, User, Phone, MapPin, Calendar, CheckSquare, Trash2, Heart, Users, Shield } from "lucide-react";
 import { mediaService } from "../services/media.service.js";
@@ -24,7 +25,7 @@ export default function PersonDetail() {
 
   const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
 
-  // Mock Family members for UI demonstration
+  // Danh sách thành viên trong gia đình (Từ Tree API)
   const [familyMembers, setFamilyMembers] = useState([]);
 
   async function load() {
@@ -86,7 +87,7 @@ export default function PersonDetail() {
         console.warn("Could not load full family tree", relErr);
       }
     } catch (e) {
-      setErr(e.message || "Tải dữ liệu thất bại");
+      setErr(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -98,12 +99,6 @@ export default function PersonDetail() {
     setErr("");
     setSaving(true);
     try {
-      if (DEV_BYPASS_AUTH) {
-        setPerson(edit);
-        alert("Đã lưu thành công (Giao diện Offline)");
-        setIsEditing(false);
-        return;
-      }
       const payload = {
         ...edit,
         fullName: edit.name,
@@ -124,7 +119,7 @@ export default function PersonDetail() {
       alert("Đã lưu thành công");
       setIsEditing(false);
     } catch (e) {
-      setErr(e.message || "Cập nhật dữ liệu thất bại");
+      setErr(formatError(e));
     } finally {
       setSaving(false);
     }
@@ -133,14 +128,10 @@ export default function PersonDetail() {
   async function remove() {
     setErr("");
     try {
-      if (DEV_BYPASS_AUTH) {
-        nav("/persons");
-        return;
-      }
       await personsService.remove(id);
       nav("/persons");
     } catch (e) {
-      setErr(e.message || "Xóa dữ liệu thất bại");
+      setErr(formatError(e));
     } finally {
       setConfirmDel(false);
     }
@@ -155,7 +146,7 @@ export default function PersonDetail() {
       // Mong đợi trả về { username, password }
       setAccountInfo(res);
     } catch (e) {
-      alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
+      alert(formatError(e));
     } finally {
       setSaving(false);
     }
@@ -165,7 +156,7 @@ export default function PersonDetail() {
     const file = e.target.files[0];
     if (!file) return;
     const branchId = typeof person.branchId === 'object' ? person.branchId._id : person.branchId;
-    if (!branchId) return alert("Không tìm thấy thông tin Chi nhánh!");
+    if (!branchId) return alert("Không tìm thấy thông tin Chi cành!");
 
     setUploadingAvatar(true);
     try {
@@ -183,7 +174,7 @@ export default function PersonDetail() {
         load();
       }
     } catch (err) {
-      alert("Lỗi tải ảnh: " + (err.response?.data?.error?.message || err.message));
+      alert(formatError(err));
     } finally {
       setUploadingAvatar(false);
     }
@@ -210,7 +201,7 @@ export default function PersonDetail() {
           <aside style={{ width: 300, flexShrink: 0 }}>
             <div className="card" style={{ textAlign: "center", padding: "32px 20px", borderRadius: 16 }}>
               <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
-                <div className="avatar" style={{ width: 140, height: 140, fontSize: 48, background: "var(--primary-light)", color: "var(--primary)", border: "6px solid #fff", boxShadow: "0 8px 20px rgba(0,0,0,0.1)" }}>
+                <div className="avatar" style={{ width: 140, height: 140, fontSize: 48, background: "var(--surface)", color: "var(--primary)", border: "6px solid var(--border)", boxShadow: "0 8px 20px rgba(0,0,0,0.1)" }}>
                   {(person?.name || person?.fullName || "U").charAt(0).toUpperCase()}
                 </div>
                 {isEditing && (
@@ -231,7 +222,7 @@ export default function PersonDetail() {
                 {person?.name || person?.fullName || "Chưa xác định"}
               </h2>
 
-              <div style={{ display: "inline-block", padding: "6px 18px", borderRadius: 20, fontSize: 14, fontWeight: 700, background: edit?.isAlive ? "var(--primary-light)" : "#fee2e2", color: edit?.isAlive ? "var(--primary)" : "var(--danger)", marginBottom: 20 }}>
+              <div style={{ display: "inline-block", padding: "6px 18px", borderRadius: 20, fontSize: 14, fontWeight: 700, background: edit?.isAlive ? "rgba(45, 106, 79, 0.1)" : "rgba(139, 0, 0, 0.1)", color: edit?.isAlive ? "#2d6a4f" : "var(--danger)", marginBottom: 20 }}>
                 {edit?.isAlive ? "Còn sống" : "Đã mất"}
               </div>
 
@@ -268,8 +259,8 @@ export default function PersonDetail() {
 
             {/* Account Info Modal */}
             {accountInfo && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-                <div className="card" style={{ width: 400, textAlign: "center", padding: 32, animation: "slideDown 0.3s ease" }}>
+              <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                <div className="card" style={{ width: 400, textAlign: "center", padding: 32, animation: "slideDown 0.3s ease", background: "var(--surface)" }}>
                   <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
                   <div className="title-md" style={{ marginBottom: 8 }}>Cấp tài khoản thành công!</div>
                   <p className="small" style={{ color: "var(--text-light)", marginBottom: 24 }}>Vui lòng gửi thông tin này cho thành viên để họ có thể đăng nhập.</p>
@@ -409,7 +400,14 @@ export default function PersonDetail() {
             <div className="card">
               <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Users size={20} color="var(--primary)" /> Thành viên gia đình</div>
-                {canEdit && <button className="btn small outline">Thêm người</button>}
+                {canEdit && (
+                  <button
+                    className="btn small outline"
+                    onClick={() => alert("Để thêm thành viên mới, vui lòng sử dụng chức năng 'Thêm người' trong trang Quản lý Chi cành của bạn.")}
+                  >
+                    Thêm người
+                  </button>
+                )}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>

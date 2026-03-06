@@ -1,19 +1,18 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../store/auth.jsx";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+
 
 export function RequireAuth({ children }) {
   const { me, loading } = useAuth();
   if (loading) return <div className="container"><div className="card">Loading...</div></div>;
-  if (!me && !DEV_BYPASS_AUTH) return <Navigate to="/login" replace />;
+  if (!me) return <Navigate to="/login" replace />;
   return children;
 }
 
 export function RequireRole({ role, children }) {
   const { me, loading } = useAuth();
   if (loading) return <div className="container"><div className="card">Loading...</div></div>;
-  if (!me && !DEV_BYPASS_AUTH) return <Navigate to="/login" replace />;
-  if (DEV_BYPASS_AUTH) return children;
+  if (!me) return <Navigate to="/login" replace />;
 
   const normalize = (r) => {
     const s = String(r || "").toLowerCase();

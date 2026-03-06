@@ -35,16 +35,16 @@ export default function Register() {
     <>
       <Topbar />
       <div className="auth-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px" }}>
-        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", textAlign: "center", borderRadius: 24 }}>
+        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", textAlign: "center", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}>
           <div className="auth-title" style={{ marginBottom: 32, fontSize: 28, fontWeight: 900 }}>Đăng ký tài khoản</div>
 
           <div style={{
-            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03))",
-            border: "1px solid rgba(245, 158, 11, 0.15)",
+            background: "rgba(184, 134, 11, 0.05)",
+            border: "1px solid var(--accent)",
             padding: "40px 28px",
             borderRadius: 24,
             marginBottom: 40,
-            boxShadow: "0 10px 30px rgba(245, 158, 11, 0.05)"
+            boxShadow: "none"
           }}>
             <div style={{ fontSize: 64, marginBottom: 24 }}>🔒</div>
             <div style={{ fontWeight: 800, color: "var(--text-dark)", fontSize: 20, marginBottom: 16, lineHeight: 1.4 }}>Hệ thống không cho phép đăng ký tự do</div>
@@ -53,7 +53,7 @@ export default function Register() {
             </div>
           </div>
 
-          <Link to="/login" className="btn primary" style={{ width: "100%", padding: "16px", justifyContent: "center", borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "0 8px 20px rgba(238, 77, 45, 0.2)" }}>
+          <Link to="/login" className="btn primary" style={{ width: "100%", padding: "16px", justifyContent: "center", borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "none" }}>
             Quay lại đăng nhập
           </Link>
 

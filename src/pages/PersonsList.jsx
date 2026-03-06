@@ -2,15 +2,21 @@ import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { personsService } from "../services/persons.service.js";
 import { Link } from "react-router-dom";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+
 import { branchesService } from "../services/branches.service.js";
+import { useAuth } from "../store/auth.jsx";
 
 export default function PersonsList() {
+  const { me } = useAuth();
   const [items, setItems] = useState([]);
   const [params, setParams] = useState({ page: 1, limit: 20, branchId: "", privacy: "" });
   const [meta, setMeta] = useState(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newPerson, setNewPerson] = useState({ fullName: "", gender: "male", branchId: "" });
+  const [isCreating, setIsCreating] = useState(false);
+
 
   const [branches, setBranches] = useState([]);
   async function load(p = params) {
@@ -22,37 +28,69 @@ export default function PersonsList() {
       setItems(Array.isArray(list) ? list : (list.data || []));
       setMeta(res.meta || null);
     } catch (e) {
-      setErr(e.message || "Lỗi tải dữ liệu");
+      setErr(formatError(e));
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { 
+  useEffect(() => {
     (async () => {
       try {
         const res = await branchesService.list({ limit: 100 });
         const list = res?.data || res || [];
         setBranches(Array.isArray(list) ? list : (list.data || []));
       } catch (e) {
-        console.error("Không tải được chi nhánh", e);
+        console.error("Không tải được chi cành", e);
       }
     })();
-    
-    load(); 
+
+    load();
 
   }, []);
+
+  // Role calculations
+  const isGlobalAdmin = me?.role === "admin";
+  const isGlobalEditor = me?.role === "editor" || me?.role === "tree_admin";
+
+  // A person can add members if they are Admin, Editor globally, or if they manage ANY branch
+  const isBranchAdmin = branches.some(b => {
+    const isOwner = b.ownerId === (me?._id || me?.id);
+    const isManager = b.members?.some(m => {
+      const uid = m.userId?._id || m.userId;
+      return uid === (me?._id || me?.id) && (m.roleInBranch === "editor" || m.roleInBranch === "owner");
+    });
+    return isOwner || isManager;
+  });
+
+  const canAddMember = isGlobalAdmin || isGlobalEditor || isBranchAdmin;
 
   return (
     <>
       <Topbar />
       <div className="container">
         <div className="card">
-          <div className="title-md">Danh sách thành viên toàn hệ thống</div>
-          <div className="small" style={{ marginBottom: 20 }}>Liệt kê danh sách tất cả các thành viên để quản lý dễ dàng.</div>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 24, alignItems: "flex-end" }}>
+            <div>
+              <div className="title-md">
+                {isGlobalAdmin ? "Danh sách thành viên toàn hệ thống" : "Danh sách thành viên trong dòng họ"}
+              </div>
+              <div className="small">
+                {isGlobalAdmin
+                  ? "Liệt kê danh sách tất cả các thành viên để quản lý dễ dàng."
+                  : "Danh sách các thành viên thuộc dòng họ mà bạn có quyền xem."}
+              </div>
+            </div>
+            {canAddMember && (
+              <button className="btn primary" onClick={() => setShowAddModal(true)}>
+                + Thêm thành viên mới
+              </button>
+            )}
+          </div>
+
 
           <div className="filters">
-            {/* <input className="input" style={{ maxWidth: 260 }} placeholder="Mã chi nhánh (Branch ID)..."
+            {/* <input className="input" style={{ maxWidth: 260 }} placeholder="Mã chi cành (Branch ID)..."
               value={params.branchId} onChange={(e) => setParams(s => ({ ...s, branchId: e.target.value }))} />
 
             <select className="select" style={{ maxWidth: 200 }} value={params.privacy} onChange={(e) => setParams(s => ({ ...s, privacy: e.target.value }))}>
@@ -61,13 +99,13 @@ export default function PersonsList() {
               <option value="internal">Nội bộ</option>
               <option value="sensitive">Nhạy cảm</option>
             </select> */}
-            <select 
-              className="select" 
-              style={{ maxWidth: 260 }} 
-              value={params.branchId} 
+            <select
+              className="select"
+              style={{ maxWidth: 260 }}
+              value={params.branchId}
               onChange={(e) => setParams(s => ({ ...s, branchId: e.target.value }))}
             >
-              <option value="">Tất cả chi nhánh</option>
+              <option value="">Tất cả chi cành</option>
               {branches.map(b => (
                 <option key={b._id} value={b._id}>{b.name}</option>
               ))}
@@ -140,6 +178,53 @@ export default function PersonsList() {
           )}
         </div>
       </div>
+
+      {showAddModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+          <div className="card" style={{ width: 450, animation: "slideDown 0.3s ease" }}>
+            <div className="title-md" style={{ marginBottom: 16 }}>Thêm thành viên phả hệ mới</div>
+            <form className="stack" onSubmit={async (e) => {
+              e.preventDefault();
+              setIsCreating(true);
+              try {
+                await personsService.create(newPerson);
+                alert("Thêm thành viên thành công!");
+                setShowAddModal(false);
+                setNewPerson({ fullName: "", gender: "male", branchId: "" });
+                load();
+              } catch (err) {
+                alert(formatError(err));
+              } finally {
+                setIsCreating(false);
+              }
+            }}>
+              <div>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Họ và tên *</label>
+                <input required className="input" placeholder="VD: Nguyễn Văn A" value={newPerson.fullName} onChange={e => setNewPerson({ ...newPerson, fullName: e.target.value })} />
+              </div>
+              <div>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Giới tính</label>
+                <select className="select" value={newPerson.gender} onChange={e => setNewPerson({ ...newPerson, gender: e.target.value })}>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                </select>
+              </div>
+              <div>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Chi cành / Dòng họ *</label>
+                <select required className="select" value={newPerson.branchId} onChange={e => setNewPerson({ ...newPerson, branchId: e.target.value })}>
+                  <option value="">-- Chọn chi cành --</option>
+                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", marginTop: 16, gap: 10 }}>
+                <button type="button" className="btn outline" onClick={() => setShowAddModal(false)}>Hủy</button>
+                <button type="submit" className="btn primary" disabled={isCreating}>{isCreating ? "Đang xử lý..." : "Tạo mới"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
+
   );
 }

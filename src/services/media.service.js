@@ -1,17 +1,14 @@
 import { api, unwrap } from "../lib/api.js";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
 
 export const mediaService = {
   async upload(formData) {
-    if (DEV_BYPASS_AUTH) return { success: true };
     const res = await api.post("/media/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return unwrap(res);
   },
   async list() {
-    if (DEV_BYPASS_AUTH) return [];
-    const res = await api.get("/media");
+    const res = await api.get("/medias");
     return unwrap(res);
   },
   async get(id) {
@@ -19,12 +16,10 @@ export const mediaService = {
     return unwrap(res);
   },
   async update(id, payload) {
-    if (DEV_BYPASS_AUTH) return { id, ...payload };
     const res = await api.put(`/media/${id}`, payload);
     return unwrap(res);
   },
   async remove(id) {
-    if (DEV_BYPASS_AUTH) return { success: true };
     const res = await api.delete(`/media/${id}`);
     return unwrap(res);
   },

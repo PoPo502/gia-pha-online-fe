@@ -83,11 +83,14 @@ api.interceptors.response.use(
 
 /** Helper unwrap theo spec {success, data, error} */
 export function unwrap(res) {
+  // Nếu response có success=false (theo spec riêng)
   if (res?.data?.success === false) {
-    const msg = res.data?.error?.message || "Lỗi máy chủ cục bộ";
-    const e = new Error(msg);
+    const rawMsg = res.data?.error?.message || res.data?.message || "Lỗi máy chủ cục bộ";
+    const e = new Error(rawMsg);
     e.code = res.data?.error?.code;
     e.details = res.data?.error?.details;
+    // Gắn thêm message thân thiện nếu có thể
+    e.friendlyMessage = formatError(e);
     throw e;
   }
 
@@ -102,4 +105,27 @@ export function unwrap(res) {
   }
 
   return res?.data;
+}
+
+/** 
+ * Bản đồ dịch thông báo lỗi sang tiếng Việt thân thiện 
+ * Giúp tránh hiển thị các mã lỗi kỹ thuật (400, 403, Invalid data...) cho người dùng.
+ */
+export function formatError(e) {
+  const errorMap = {
+    "Invalid input data": "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại các trường nhập liệu.",
+    "Request failed with status code 400": "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại thông tin.",
+    "Request failed with status code 403": "Bạn không có quyền thực hiện hành động này hoặc quyền truy cập bị từ chối.",
+    "Request failed with status code 404": "Không tìm thấy dữ liệu yêu cầu.",
+    "Request failed with status code 500": "Lỗi máy chủ hệ thống. Vui lòng thử lại sau.",
+    "Network Error": "Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền Internet của bạn.",
+    "timeout": "Yêu cầu bị quá hạn (timeout). Vui lòng thử lại.",
+    "Unauthorized": "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
+    "Forbidden": "Bạn không có quyền truy cập vào mục này."
+  };
+
+  const rawMsg = e.response?.data?.error?.message || e.response?.data?.message || e.message || "";
+
+  // Tìm kiếm message gốc trong bản đồ dịch, nếu không có thì trả về chính nó hoặc câu mặc định
+  return errorMap[rawMsg] || rawMsg || "Đã có lỗi xảy ra. Vui lòng thử lại.";
 }

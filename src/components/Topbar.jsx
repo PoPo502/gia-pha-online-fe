@@ -53,14 +53,21 @@ export default function Topbar() {
     }
   };
 
+  const [hasNotifications, setHasNotifications] = useState(false);
+
+  const handleNotificationClick = () => {
+    alert("Bạn không có thông báo mới nào.");
+    setHasNotifications(false);
+  };
+
   return (
     <div className="topbar">
       <div className="topbar-inner" style={{ maxWidth: 1400 }}>
         {/* Logo Section */}
         <div className="nav" style={{ gap: 24 }}>
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ background: "linear-gradient(135deg, #ff4c2d, #ff914d)", color: "#fff", padding: "6px 14px", borderRadius: 10, fontWeight: 900, fontSize: 18, boxShadow: "0 4px 12px rgba(238, 77, 45, 0.25)" }}>GIA PHẢ</div>
-            <span style={{ fontWeight: 800, fontSize: 18, color: "#333", letterSpacing: "-0.5px" }}>VIỆT ONLINE</span>
+            <div style={{ background: "linear-gradient(135deg, var(--primary), var(--primary-hover))", color: "#fff", padding: "6px 14px", borderRadius: 10, fontWeight: 900, fontSize: 18, boxShadow: "0 4px 12px rgba(139, 0, 0, 0.25)" }}>GIA PHẢ</div>
+            <span style={{ fontWeight: 800, fontSize: 18, color: "var(--text-dark)", letterSpacing: "-0.5px" }}>VIỆT ONLINE</span>
           </Link>
 
           {/* Center Navigation */}
@@ -78,9 +85,13 @@ export default function Topbar() {
         <div className="nav" style={{ gap: 16 }}>
           {me && (
             <>
-              <button className="btn" style={{ background: "none", border: "none", padding: 8, boxShadow: "none", position: "relative" }}>
+              <button
+                className="btn"
+                style={{ background: "none", border: "none", padding: 8, boxShadow: "none", position: "relative" }}
+                onClick={handleNotificationClick}
+              >
                 <Bell size={22} color="var(--text-dark)" />
-                <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, background: "var(--danger)", borderRadius: "50%", border: "2px solid #fff" }}></span>
+                {hasNotifications && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, background: "var(--danger)", borderRadius: "50%", border: "2px solid #fff" }}></span>}
               </button>
 
               {(isAdmin || isEditor) && (
@@ -116,7 +127,7 @@ export default function Topbar() {
                       position: "absolute",
                       top: "calc(100% + 10px)",
                       right: 0,
-                      background: "#fff",
+                      background: "var(--surface)",
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)",

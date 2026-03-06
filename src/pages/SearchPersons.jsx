@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { searchService } from "../services/search.service.js";
 import { branchesService } from "../services/branches.service.js";
+import { formatError } from "../lib/api.js";
 import { Link } from "react-router-dom";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+
 import { useDebounce } from "../hooks/useDebounce.js";
 import { Search, Filter, MapPin, Users, CalendarDays, Activity, ChevronDown } from "lucide-react";
 
@@ -33,31 +34,55 @@ export default function SearchPersons() {
     })();
   }, []);
 
-  const canSearch = useMemo(() => q.trim().length > 0, [q]);
+  const hasFilters = useMemo(() =>
+    (filters.branch && filters.branch !== "all") ||
+    (filters.generation && filters.generation !== "all") ||
+    (filters.privacy && filters.privacy !== "all"),
+    [filters]);
+
+  const canSearch = useMemo(() => q.trim().length > 0 || hasFilters, [q, hasFilters]);
+
+  // Xoá lỗi khi người dùng thay đổi input hoặc bộ lọc
+  useEffect(() => {
+    setErr("");
+  }, [q, filters]);
 
   useEffect(() => {
     if (debouncedQ.trim()) {
       run(1);
-    } else {
+    } else if (!hasFilters) {
       setItems([]);
       setMeta(null);
     }
-  }, [debouncedQ]);
+  }, [debouncedQ, hasFilters]);
 
   async function run(page = 1) {
     setErr("");
+
+    // Kiểm tra nếu không có từ khóa và cũng không có bộ lọc nào được chọn
+    const hasFilters = (filters.branch && filters.branch !== "all") ||
+      (filters.generation && filters.generation !== "all") ||
+      (filters.privacy && filters.privacy !== "all");
+
+    if (!q.trim() && !hasFilters) {
+      setErr("Vui lòng nhập họ tên hoặc chọn ít nhất một bộ lọc (Chi cành, Đời...) để tìm kiếm.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = { q, page, limit: 20 };
+      const payload = { page, limit: 20 };
+      if (q.trim()) payload.q = q.trim();
       if (filters.privacy && filters.privacy !== "all") payload.privacy = filters.privacy;
       if (filters.branch && filters.branch !== "all") payload.branchId = filters.branch;
       if (filters.generation && filters.generation !== "all") payload.generation = filters.generation;
+
       const res = await searchService.persons(payload);
       const list = res.data || res;
       setItems(Array.isArray(list) ? list : (list.data || []));
       setMeta(res.meta || null);
     } catch (e) {
-      setErr(e.message || "Không thể tải dữ liệu tìm kiếm.");
+      setErr(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -83,11 +108,11 @@ export default function SearchPersons() {
                 placeholder="Nhập họ tên, tự hiệu, pháp danh..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                style={{ width: "100%", paddingLeft: 52, height: 56, fontSize: 17, borderRadius: 12, border: "1px solid var(--border)", background: "#f8f9fa" }}
+                style={{ width: "100%", paddingLeft: 52, height: 56, fontSize: 17, borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)" }}
                 onKeyDown={(e) => { if (e.key === "Enter" && canSearch) run(1); }}
               />
             </div>
-            <button className="btn primary" onClick={() => run(1)} disabled={!canSearch || loading} style={{ height: 56, padding: "0 32px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>
+            <button className="btn primary" onClick={() => run(1)} disabled={loading} style={{ height: 56, padding: "0 32px", fontSize: 16, fontWeight: 700, borderRadius: 12 }}>
               {loading ? "Đang tìm..." : "Tìm kiếm ngay"}
             </button>
           </div>
@@ -108,9 +133,9 @@ export default function SearchPersons() {
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--border)", animation: "fadeIn 0.3s ease" }}>
 
               <div>
-                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 8 }}><Users size={14} style={{ marginRight: 4 }} /> Chi nhánh</label>
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 8 }}><Users size={14} style={{ marginRight: 4 }} /> Chi cành</label>
                 <select className="select" value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })}>
-                  <option value="all">Tất cả chi nhánh</option>
+                  <option value="all">Tất cả chi cành</option>
                   {branches.map((b) => (
                     <option key={b._id} value={b._id}>{b.name}</option>
                   ))}
@@ -149,7 +174,22 @@ export default function SearchPersons() {
           )}
         </div>
 
-        {err && <div className="card" style={{ color: "var(--danger)", marginBottom: 16 }}>{err}</div>}
+        {err && (
+          <div className="card" style={{
+            color: "var(--danger)",
+            marginBottom: 24,
+            background: "rgba(239, 68, 68, 0.05)",
+            border: "1px solid rgba(239, 68, 68, 0.1)",
+            padding: "16px 24px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontWeight: 600
+          }}>
+            <Activity size={20} /> {err}
+          </div>
+        )}
 
         <div>
           {items.length === 0 && !loading && canSearch && q.length > 0 && (
@@ -193,7 +233,7 @@ export default function SearchPersons() {
                       </div>
 
                       <div className="small" style={{ color: "var(--muted)", marginTop: 8, display: "flex", gap: 6, alignItems: "center", fontWeight: 500 }}>
-                        <MapPin size={14} color="var(--primary)" /> {p.branch?.name || p.branchId || "Chi nhánh gốc"}
+                        <MapPin size={14} color="var(--primary)" /> {p.branch?.name || p.branchId || "Chi cành gốc"}
                       </div>
 
                       <div className="person-actions" style={{ marginTop: 16, gap: 12 }}>

@@ -4,7 +4,10 @@ export const postsService = {
     // 1. Quản lý Bài viết
     async list(params) {
         const res = await api.get("/posts", { params });
-        const list = res?.data?.data || res?.data || unwrap(res);
+        let list = res?.data?.data || res?.data || unwrap(res);
+        if (list && !Array.isArray(list) && Array.isArray(list.data)) {
+            list = list.data;
+        }
         if (list && Array.isArray(list)) {
             // Đảm bảo bài viết mới nằm trên cùng
             return [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -46,12 +49,12 @@ export const postsService = {
     },
 
     async updateComment(postId, commentId, content) {
-        const res = await api.put(`/posts/${postId}/comments/${commentId}`, { content });
+        const res = await api.put(`/posts/comments/${commentId}`, { content });
         return unwrap(res);
     },
 
     async removeComment(postId, commentId) {
-        const res = await api.delete(`/posts/${postId}/comments/${commentId}`);
+        const res = await api.delete(`/posts/comments/${commentId}`);
         return unwrap(res);
     }
 };

@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { mediaService } from "../services/media.service.js";
 import { Image as ImageIcon, Video, Upload, Trash2, Maximize2, X } from "lucide-react";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+
 import { branchesService } from "../services/branches.service.js";
+import { formatError } from "../lib/api.js";
+import { useAuth } from "../store/auth.jsx";
 
 export default function Media() {
+    const { me } = useAuth();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
@@ -14,31 +17,20 @@ export default function Media() {
     const [branches, setBranches] = useState([]);
     const [selectedBranch, setSelectedBranch] = useState("");
 
-    const mockMedia = [
-        { id: "m1", url: "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800", type: "image", title: "Ảnh đại gia đình 2024" },
-        { id: "m2", url: "https://images.unsplash.com/photo-1590073844006-3a44a7fab36e?w=800", type: "image", title: "Lễ giỗ tổ" },
-        { id: "m3", url: "https://images.unsplash.com/photo-1529672425113-d3035c7f4837?w=800", type: "image", title: "Kế thừa truyền thống" },
-        { id: "m4", url: "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800", type: "image", title: "Họp mặt con cháu" },
-    ];
-
     async function loadMedia() {
         setLoading(true);
         try {
-            if (!DEV_BYPASS_AUTH) {
-                const [resMedia, resBranches] = await Promise.all([
-                    mediaService.list(),
-                    branchesService.list({ limit: 100 })
-                ]);
-                setItems(resMedia.data || resMedia || []);
-                
-                const bList = resBranches.data?.data || resBranches.data || [];
-                setBranches(bList);
-                if (bList.length > 0) setSelectedBranch(bList[0]._id);
-            } else {
-                setItems(mockMedia);
-            }
+            const [resMedia, resBranches] = await Promise.all([
+                mediaService.list(),
+                branchesService.list({ limit: 100 })
+            ]);
+            setItems(resMedia.data || resMedia || []);
+
+            const bList = resBranches.data?.data || resBranches.data || [];
+            setBranches(bList);
+            if (bList.length > 0) setSelectedBranch(bList[0]._id);
         } catch (e) {
-            setErr("Không thể tải thư viện: " + e.message);
+            setErr(formatError(e));
         } finally {
             setLoading(false);
         }
@@ -49,25 +41,21 @@ export default function Media() {
     const handleUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!selectedBranch && !DEV_BYPASS_AUTH) {
-            alert("Vui lòng chọn chi nhánh trước khi tải lên!");
+        if (!selectedBranch) {
+            alert("Vui lòng chọn chi cành trước khi tải lên!");
             return;
         }
 
         setUploading(true);
         try {
-            if (DEV_BYPASS_AUTH) {
-                /* ... code cũ giữ nguyên ... */
-            } else {
-                const formData = new FormData();
-                formData.append("file", file);
-                formData.append("branchId", selectedBranch); // FIX: Bắt buộc phải có branchId
-                
-                await mediaService.upload(formData);
-                await loadMedia();
-            }
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("branchId", selectedBranch); // FIX: Bắt buộc phải có branchId
+
+            await mediaService.upload(formData);
+            await loadMedia();
         } catch (e) {
-            setErr("Lỗi tải lên: " + (e.response?.data?.error?.message || e.message));
+            setErr(formatError(e));
         } finally {
             setUploading(false);
         }
@@ -76,15 +64,39 @@ export default function Media() {
     const handleDelete = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa tệp này? Hành động này không thể hoàn tác.")) return;
         try {
-            if (DEV_BYPASS_AUTH) {
-                setItems(items.filter(i => i.id !== id));
-            } else {
-                await mediaService.remove(id);
-                setItems(items.filter(i => i._id !== id && i.id !== id));
-            }
+            await mediaService.remove(id);
+            setItems(items.filter(i => i._id !== id && i.id !== id));
         } catch (e) {
-            alert("Lỗi xóa tệp: " + e.message);
+            alert(formatError(e));
         }
+    };
+
+    // Role calculations
+    const isGlobalAdmin = me?.role === "admin";
+
+    // Find selected branch from branches list
+    const branchInfo = branches.find(b => b._id === selectedBranch);
+
+    // Check if the current user is owner or editor in this branch
+    const isBranchOwner = branchInfo?.ownerId === (me?._id || me?.id);
+    const branchMember = branchInfo?.members?.find(m => {
+        const uid = m.userId?._id || m.userId;
+        return uid === (me?._id || me?.id);
+    });
+    const isBranchEditor = branchMember?.roleInBranch === "editor" || branchMember?.roleInBranch === "owner";
+
+    const canUpload = !!me; // Anyone logged in can upload, but to a specific branch
+
+    // We can delete if we are Global Admin, Branch Owner/Editor, or the original uploader
+    const canDelete = (item) => {
+        if (isGlobalAdmin || isBranchOwner || isBranchEditor) return true;
+
+        // If the backend returns `uploadedBy`, we check it. 
+        // Otherwise, without strict attribution on UI, we lean on backend protection,
+        // but hide the button for safety if we don't know they uploaded it.
+        if (item.uploadedBy === (me?._id || me?.id)) return true;
+
+        return false;
     };
 
     return (
@@ -93,20 +105,22 @@ export default function Media() {
             <div className="container" style={{ maxWidth: 1200 }}>
                 <div className="row" style={{ gap: 12 }}>
                     {branches.length > 0 && (
-                        <select 
-                            className="select" 
-                            value={selectedBranch} 
+                        <select
+                            className="select"
+                            value={selectedBranch}
                             onChange={(e) => setSelectedBranch(e.target.value)}
                             style={{ width: 200 }}
                         >
                             {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
                         </select>
                     )}
-                    <label className="btn primary" style={{ cursor: "pointer", position: "relative" }}>
-                        <Upload size={18} style={{ marginRight: 8 }} />
-                        {uploading ? "Đang tải lên..." : "Tải lên tệp mới"}
-                        <input type="file" hidden onChange={handleUpload} disabled={uploading} accept="image/*,video/*" />
-                    </label>
+                    {canUpload && (
+                        <label className="btn primary" style={{ cursor: "pointer", position: "relative" }}>
+                            <Upload size={18} style={{ marginRight: 8 }} />
+                            {uploading ? "Đang tải lên..." : "Tải lên tệp mới"}
+                            <input type="file" hidden onChange={handleUpload} disabled={uploading} accept="image/*,video/*" />
+                        </label>
+                    )}
                 </div>
 
                 {err && <div className="card" style={{ color: "var(--danger)", background: "rgba(239, 68, 68, 0.1)", marginBottom: 20 }}>{err}</div>}
@@ -133,7 +147,9 @@ export default function Media() {
                                         display: "flex", alignItems: "center", justifyContent: "center", gap: 12
                                     }} className="hover-show">
                                         <button className="btn small" onClick={() => setPreviewItem(item)} style={{ background: "#fff", color: "#333" }}><Maximize2 size={16} /></button>
-                                        <button className="btn small" onClick={() => handleDelete(item._id || item.id)} style={{ background: "rgba(239, 68, 68, 0.8)", color: "#fff" }}><Trash2 size={16} /></button>
+                                        {canDelete(item) && (
+                                            <button className="btn small" onClick={() => handleDelete(item._id || item.id)} style={{ background: "rgba(239, 68, 68, 0.8)", color: "#fff" }}><Trash2 size={16} /></button>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ padding: 12 }}>
@@ -168,7 +184,7 @@ export default function Media() {
             )}
 
             <style>{`
-        .hover-show:hover { opacity: 1 !important; }
+        .card:hover .hover-show { opacity: 1 !important; }
       `}</style>
         </>
     );

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth.jsx";
 import Topbar from "../components/Topbar.jsx";
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+
 
 export default function Login() {
   const { login } = useAuth();
@@ -33,7 +33,7 @@ export default function Login() {
     <>
       <Topbar />
       <div className="auth-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px" }}>
-        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", borderRadius: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.06)" }}>
+        <div className="auth-card" style={{ maxWidth: 480, width: "100%", padding: "48px 40px", borderRadius: 24, background: "var(--surface)", boxShadow: "0 20px 40px rgba(0,0,0,0.1)", border: "1px solid var(--border)" }}>
           <div className="auth-title" style={{ marginBottom: 12, fontSize: 28, fontWeight: 900 }}>Đăng nhập</div>
           <div className="small" style={{ textAlign: "center", marginBottom: 36, color: "var(--text-light)", fontSize: 15 }}>
             Chào mừng trở lại! Vui lòng nhập mã ID để truy cập.
@@ -65,24 +65,8 @@ export default function Login() {
               />
             </div>
 
-            {DEV_BYPASS_AUTH && (
-              <div style={{ padding: 20, background: "var(--primary-light)", borderRadius: 16, border: "2px dashed var(--primary)" }}>
-                <div className="small" style={{ fontWeight: 800, color: "var(--primary)", marginBottom: 12, letterSpacing: "0.5px" }}>MODE DEV: QUYỀN TRUY CẬP</div>
-                <select
-                  className="input"
-                  value={form.role || "SUPER_ADMIN"}
-                  onChange={(e) => setForm(s => ({ ...s, role: e.target.value }))}
-                  style={{ background: "#fff", borderRadius: 10 }}
-                >
-                  <option value="SUPER_ADMIN">Admin Hệ Thống (Toàn quyền)</option>
-                  <option value="TREE_ADMIN">Admin Tree (Kiểm duyệt bài)</option>
-                  <option value="USER">User (Thành viên xem cây)</option>
-                </select>
-              </div>
-            )}
-
-            <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "0 8px 20px rgba(238, 77, 45, 0.2)" }}>
-              {loading ? "Đang xử lý..." : (DEV_BYPASS_AUTH ? "Đăng nhập (Phát triển)" : "Đăng nhập hệ thống")}
+            <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", marginTop: 8, padding: 16, borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "none" }}>
+              {loading ? "Đang xử lý..." : "Đăng nhập hệ thống"}
             </button>
 
             {err && (

@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import { personsService } from "../services/persons.service.js";
 import { eventsService } from "../services/events.service.js";
 import { postsService } from "../services/posts.service.js";
+import { formatError } from "../lib/api.js";
+import CalendarModal from "../components/CalendarModal.jsx";
 import { Search, Edit3, Radio, Home as HomeIcon, Video, Image as ImageIcon, Heart, MessageSquare, Camera, GitBranch, Users, Gift, Calendar } from "lucide-react";
 
 export default function HomeUser() {
@@ -30,6 +32,9 @@ export default function HomeUser() {
     const [editingComment, setEditingComment] = useState(null);
     const [editingPostId, setEditingPostId] = useState(null);
     const [editingPostContent, setEditingPostContent] = useState("");
+    const [editingPostImage, setEditingPostImage] = useState(null); // null = keep existing, "REMOVE" = remove, or new base64
+    const [editingPostExistingImage, setEditingPostExistingImage] = useState(null); // Original image URL
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     const feelings = [
         { emoji: "😀", label: "Hạnh phúc" },
@@ -55,7 +60,7 @@ export default function HomeUser() {
                 const postsRes = await postsService.list();
                 setPosts(postsRes || []);
             } catch (e) {
-                console.error("Failed to fetch data", e);
+                console.warn(formatError(e));
             }
         }
         fetchData();
@@ -88,8 +93,7 @@ export default function HomeUser() {
             setSelectedImage(null);
             setShowModal(false);
         } catch (err) {
-            console.error("Lỗi khi tạo bài viết:", err);
-            alert("Đã xảy ra lỗi khi tạo bài viết. Vui lòng thử lại!");
+            alert(formatError(err));
         }
     };
 
@@ -111,7 +115,7 @@ export default function HomeUser() {
             const postsRes = await postsService.list();
             setPosts(postsRes || []);
         } catch (e) {
-            console.error("Lỗi khi thả tim:", e);
+            alert(formatError(e));
         }
     };
 
@@ -139,7 +143,7 @@ export default function HomeUser() {
             const cmtList = await postsService.getComments(postId);
             setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
         } catch (e) {
-            console.error("Lỗi gửi bình luận", e);
+            alert(formatError(e));
         }
     };
 
@@ -151,7 +155,7 @@ export default function HomeUser() {
             const cmtList = await postsService.getComments(postId);
             setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
         } catch (e) {
-            console.error("Lỗi sửa bình luận", e);
+            alert(formatError(e));
         }
     };
 
@@ -162,19 +166,29 @@ export default function HomeUser() {
             const cmtList = await postsService.getComments(postId);
             setCommentsData(prev => ({ ...prev, [postId]: cmtList }));
         } catch (e) {
-            console.error("Lỗi xoá bình luận", e);
+            alert(formatError(e));
         }
     };
 
     const handleUpdatePost = async (postId) => {
         if (!editingPostContent.trim()) return;
         try {
-            await postsService.update(postId, { content: editingPostContent });
+            const payload = { content: editingPostContent };
+            // Đưa ảnh mới nếu có, hoặc xóa ảnh nếu user chọn xóa
+            if (editingPostImage === "REMOVE") {
+                payload.image_url = "";
+            } else if (editingPostImage) {
+                payload.image_url = editingPostImage;
+            }
+            // Nếu editingPostImage === null => giữ nguyên ảnh cũ, không truyền gì
+            await postsService.update(postId, payload);
             setEditingPostId(null);
+            setEditingPostImage(null);
+            setEditingPostExistingImage(null);
             const postsRes = await postsService.list();
             setPosts(postsRes || []);
         } catch (e) {
-            console.error("Lỗi cập nhật bài viết:", e);
+            alert(formatError(e));
         }
     };
 
@@ -185,7 +199,7 @@ export default function HomeUser() {
             const postsRes = await postsService.list();
             setPosts(postsRes || []);
         } catch (e) {
-            console.error("Lỗi xóa bài viết:", e);
+            alert(formatError(e));
         }
     };
 
@@ -217,18 +231,18 @@ export default function HomeUser() {
                             </div>
                         </div>
 
-                        <div className="card" style={{ padding: 20, borderRadius: 22, marginBottom: 24, border: "1px solid var(--border)", background: "#fff" }}>
+                        <div className="card" style={{ padding: 20, borderRadius: 22, marginBottom: 24, border: "1px solid var(--border)", background: "var(--surface-solid)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
                                 <div style={{ width: 34, height: 34, background: "var(--primary-light)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <GitBranch size={19} color="var(--primary)" />
                                 </div>
                                 <div style={{ fontWeight: 800, fontSize: 16 }}>Cây gia phả con</div>
                             </div>
-                            <div style={{ height: 160, background: "#fdfdfd", borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px dashed #eee" }}>
+                            <div style={{ height: 160, background: "rgba(0,0,0,0.02)", borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px dashed var(--border)" }}>
                                 <svg viewBox="0 0 100 80" style={{ width: 80, height: 80, marginBottom: 12 }}>
                                     <circle cx="50" cy="15" r="6" fill="var(--primary)" />
-                                    <line x1="50" y1="21" x2="30" y2="40" stroke="#ddd" strokeWidth="2" />
-                                    <line x1="50" y1="21" x2="70" y2="40" stroke="#ddd" strokeWidth="2" />
+                                    <line x1="50" y1="21" x2="30" y2="40" stroke="var(--border)" strokeWidth="2" />
+                                    <line x1="50" y1="21" x2="70" y2="40" stroke="var(--border)" strokeWidth="2" />
                                     <circle cx="30" cy="40" r="6" fill="var(--accent)" />
                                     <circle cx="70" cy="40" r="6" fill="var(--accent)" />
                                 </svg>
@@ -237,18 +251,18 @@ export default function HomeUser() {
                             <div className="small" style={{ marginTop: 14, color: "var(--muted)", textAlign: "center", fontWeight: 500 }}>Sơ đồ huyết thống trực hệ của gia đình bạn.</div>
                         </div>
 
-                        <div className="card" style={{ padding: 20, borderRadius: 22, border: "1px solid var(--border)", background: "#fff" }}>
+                        <div className="card" style={{ padding: 20, borderRadius: 22, border: "1px solid var(--border)", background: "var(--surface-solid)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
                                 <div style={{ width: 34, height: 34, background: "rgba(208, 1, 27, 0.08)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <Users size={19} color="var(--red)" />
                                 </div>
                                 <div style={{ fontWeight: 800, fontSize: 16 }}>Cây gia phả đầy đủ</div>
                             </div>
-                            <div style={{ height: 160, background: "#fdfdfd", borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px dashed #eee" }}>
+                            <div style={{ height: 160, background: "rgba(0,0,0,0.02)", borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px dashed var(--border)" }}>
                                 <svg viewBox="0 0 120 100" style={{ width: 100, height: 80, marginBottom: 12 }}>
                                     <circle cx="60" cy="10" r="5" fill="var(--red)" />
-                                    <line x1="60" y1="15" x2="30" y2="35" stroke="#ddd" strokeWidth="2" />
-                                    <line x1="60" y1="15" x2="90" y2="35" stroke="#ddd" strokeWidth="2" />
+                                    <line x1="60" y1="15" x2="30" y2="35" stroke="var(--border)" strokeWidth="2" />
+                                    <line x1="60" y1="15" x2="90" y2="35" stroke="var(--border)" strokeWidth="2" />
                                     <circle cx="30" cy="35" r="5" fill="var(--accent)" />
                                     <circle cx="90" cy="35" r="5" fill="var(--accent)" />
                                 </svg>
@@ -264,10 +278,10 @@ export default function HomeUser() {
                         textAlign: "center",
                         marginBottom: 40,
                         padding: "40px 20px",
-                        background: "linear-gradient(135deg, #fff 0%, #fff5f2 100%)",
+                        background: "linear-gradient(135deg, var(--surface) 0%, var(--bg-body) 100%)",
                         borderRadius: 24,
-                        border: "1px solid rgba(238, 77, 45, 0.1)",
-                        boxShadow: "0 10px 30px rgba(238, 77, 45, 0.05)"
+                        border: "1px solid var(--border)",
+                        boxShadow: "var(--shadow-lg)"
                     }}>
                         <h1 style={{ fontSize: 32, fontWeight: 900, color: "var(--text-dark)", marginBottom: 16 }}>
                             Chào mừng, <span style={{ color: "var(--primary)" }}>{me?.fullName || "Thành viên"}!</span>
@@ -280,7 +294,7 @@ export default function HomeUser() {
                     <div className="post-input-box" style={{ cursor: "pointer" }}>
                         <div style={{ display: "flex", gap: 12, alignItems: "center" }} onClick={() => setShowModal(true)}>
                             <div className="avatar" style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>{(me?.fullName || "U").charAt(0)}</div>
-                            <div style={{ flex: 1, background: "#f0f2f5", borderRadius: 20, padding: "10px 16px", color: "var(--muted)", textAlign: "left" }}>Bạn đang nghĩ gì?</div>
+                            <div style={{ flex: 1, background: "rgba(139, 0, 0, 0.05)", borderRadius: 20, padding: "10px 16px", color: "var(--muted)", textAlign: "left" }}>Bạn đang nghĩ gì?</div>
                         </div>
                         <hr style={{ margin: "12px 0 8px" }} />
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "0 8px" }}>
@@ -302,9 +316,9 @@ export default function HomeUser() {
                         const isLiked = Array.isArray(post.likes) ? post.likes.includes(me?.id) : false;
                         const likeCount = Array.isArray(post.likes) ? post.likes.length : (post.likes || 0);
                         const postId = post.id || post._id;
-                        
+
                         const uId = post.user_id?._id || post.user_id || post.userId;
-                        const isMyPost = (uId && uId === me?.id) || post.user === me?.fullName;
+                        const isMyPost = (uId && (uId === me?.id || uId === me?._id)) || post.user === me?.fullName;
 
                         return (
                             <div key={postId} className="post-card">
@@ -318,39 +332,30 @@ export default function HomeUser() {
                                     </div>
                                     {isMyPost && (
                                         <div style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "center" }}>
-                                            <span style={{ cursor: "pointer", color: "var(--primary)", fontWeight: 600 }} onClick={() => { setEditingPostId(postId); setEditingPostContent(post.content); }}>Sửa</span>
+                                            <span style={{ cursor: "pointer", color: "var(--primary)", fontWeight: 600 }} onClick={() => {
+                                                setEditingPostId(postId);
+                                                setEditingPostContent(post.content || "");
+                                                setEditingPostImage(null);
+                                                setEditingPostExistingImage(post.image_url || post.image || null);
+                                            }}>Sửa</span>
                                             <span style={{ cursor: "pointer", color: "var(--red)", fontWeight: 600 }} onClick={() => handleDeletePost(postId)}>Xóa</span>
                                         </div>
                                     )}
                                 </div>
-                                
-                                {editingPostId === postId ? (
-                                    <div style={{ marginBottom: 16 }}>
-                                        <textarea 
-                                            value={editingPostContent} 
-                                            onChange={(e) => setEditingPostContent(e.target.value)} 
-                                            style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)", minHeight: 80, outline: "none", fontFamily: "inherit" }}
-                                        />
-                                        <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" }}>
-                                            <button className="btn outline small" style={{ padding: "6px 12px" }} onClick={() => setEditingPostId(null)}>Hủy</button>
-                                            <button className="btn primary small" style={{ padding: "6px 12px" }} onClick={() => handleUpdatePost(postId)}>Lưu</button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
-                                )}
-                                {(() => {
-                                    const imgPath = post.image_url || post.image;
-                                    if (!imgPath) return null;
-                                    const src = imgPath.startsWith('http') || imgPath.startsWith('data:') || imgPath.startsWith('blob:')
-                                        ? imgPath
-                                        : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgPath.startsWith('/') ? imgPath : `/${imgPath}`);
 
-                                    return (
-                                        <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-                                            <img src={src} alt="Post media" style={{ width: "100%", maxHeight: 500, objectFit: "cover", display: "block" }} />
-                                        </div>
-                                    )
+                                {/* Không hiện inline edit nữa - dùng modal thông qua editingPostId */}
+                                <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
+                                const imgPath = post.image_url || post.image;
+                                if (!imgPath) return null;
+                                const src = imgPath.startsWith('http') || imgPath.startsWith('data:') || imgPath.startsWith('blob:')
+                                ? imgPath
+                                : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgPath.startsWith('/') ? imgPath : `/${imgPath}`);
+
+                                return (
+                                <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+                                    <img src={src} alt="Post media" style={{ width: "100%", maxHeight: 500, objectFit: "cover", display: "block" }} />
+                                </div>
+                                )
                                 })()}
                                 <div style={{ display: "flex", gap: 16, padding: "8px 0", color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
                                     <div onClick={() => handleLike(post.id || post._id)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: isLiked ? "var(--red)" : "inherit", fontWeight: isLiked ? 600 : "normal" }}>
@@ -366,7 +371,7 @@ export default function HomeUser() {
                                     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
                                         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                                             <div className="avatar" style={{ width: 32, height: 32, flexShrink: 0 }}>{(me?.fullName || "U").charAt(0)}</div>
-                                            <div style={{ display: "flex", flex: 1, background: "#f0f2f5", borderRadius: 20, padding: "8px 16px", alignItems: "center" }}>
+                                            <div style={{ display: "flex", flex: 1, background: "rgba(139, 0, 0, 0.05)", borderRadius: 20, padding: "8px 16px", alignItems: "center" }}>
                                                 <input
                                                     type="text"
                                                     placeholder="Viết bình luận..."
@@ -401,7 +406,7 @@ export default function HomeUser() {
                                                 const userIdFromComment = isPopulated ? cmt.user_id._id : cmt.user_id;
 
                                                 // So sánh với ID của người dùng đang đăng nhập
-                                                const isMyComment = userIdFromComment === me?.id;
+                                                const isMyComment = userIdFromComment === me?.id || userIdFromComment === me?._id;
 
                                                 return (
                                                     <div key={cmtId} style={{ display: "flex", gap: 10 }}>
@@ -414,7 +419,7 @@ export default function HomeUser() {
                                                                         value={editingComment.text}
                                                                         onChange={e => setEditingComment({ ...editingComment, text: e.target.value })}
                                                                         autoFocus
-                                                                        style={{ width: "100%", padding: "8px 12px", borderRadius: 16, border: "1px solid var(--primary)", outline: "none" }}
+                                                                        style={{ width: "100%", padding: "8px 12px", borderRadius: 16, border: "1px solid var(--primary)", outline: "none", background: "var(--surface)" }}
                                                                         onKeyDown={(e) => {
                                                                             if (e.key === "Enter") handleSaveEditComment(post.id || post._id, cmtId);
                                                                             else if (e.key === "Escape") setEditingComment(null);
@@ -427,7 +432,7 @@ export default function HomeUser() {
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    <div style={{ background: "#f0f2f5", padding: "8px 12px", borderRadius: 16, display: "inline-block" }}>
+                                                                    <div style={{ background: "rgba(139, 0, 0, 0.05)", padding: "8px 12px", borderRadius: 16, display: "inline-block" }}>
                                                                         <div style={{ fontWeight: 600, fontSize: 13 }}>{uName}</div>
                                                                         <div style={{ fontSize: 14 }}>{cmt.content}</div>
                                                                     </div>
@@ -464,12 +469,15 @@ export default function HomeUser() {
                                 ) : ("Không có sinh nhật nào.")}
                             </div>
                         </div>
-                        <div className="widget-box">
-                            <div className="widget-title"><Calendar size={18} /> Ngày giỗ hôm nay</div>
-                            <div className="small">
-                                {todayEvents.filter(e => e.type === "death").length > 0 ? (
-                                    todayEvents.filter(e => e.type === "death").map(e => <div key={e.id}><b>{e.title}</b></div>)
-                                ) : ("Không có ngày giỗ nào.")}
+                        <div className="widget-box" style={{ background: "rgba(253, 250, 246, 0.85)", borderColor: "var(--accent)", borderStyle: "divider", paddingBottom: 0 }}>
+                            <button className="btn outline" style={{ width: "100%", justifyContent: "center", background: "#fff", marginBottom: 15 }} onClick={() => setIsCalendarOpen(true)}>Xem Lịch Âm Toàn Tập</button>
+                        </div>
+                        <div className="widget-box" style={{ background: "rgba(253, 250, 246, 0.85)", borderColor: "var(--accent)", borderStyle: "dashed" }}>
+                            <div className="widget-title"><Calendar size={18} color="var(--primary)" /> Hướng dẫn cho Thành viên</div>
+                            <div className="small" style={{ lineHeight: 1.6 }}>
+                                <b>1. Khám phá Gia phả:</b> Xem sơ đồ huyết thống tại mục "Cây gia phả".<br />
+                                <b>2. Tìm người thân:</b> Sử dụng thanh Tìm kiếm để tra cứu thông tin họ hàng.<br />
+                                <b>3. Cập nhật thông tin:</b> Đề xuất nội dung, hình ảnh mới (sẽ được quản trị duyệt).
                             </div>
                         </div>
                     </div>
@@ -478,8 +486,8 @@ export default function HomeUser() {
 
             {/* Main Post Modal */}
             {showModal && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(8px)" }}>
-                    <div className="card" style={{ width: 500, padding: 0, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(44, 34, 26, 0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(8px)" }}>
+                    <div className="card" style={{ width: 500, padding: 0, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.2)", background: "var(--surface)" }}>
                         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ fontWeight: 800, fontSize: 18, flex: 1, textAlign: "center" }}>Tạo bài viết</div>
                             <button onClick={() => { setShowModal(false); setSelectedImage(null); setSelectedFeeling(""); }} style={{ background: "var(--surface-hover)", width: 32, height: 32, borderRadius: "50%", border: "none", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dark)" }}>×</button>
@@ -553,6 +561,7 @@ export default function HomeUser() {
                     </div>
                 </div>
             )}
+            <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} />
         </>
     );
 }

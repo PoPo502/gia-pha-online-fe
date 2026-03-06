@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
-import { DEV_BYPASS_AUTH, DEV_ME } from "../dev/devConfig.js";
+
 import { Activity, Users as UsersIcon, GitBranch, ShieldAlert, History, Megaphone, Database, Plus } from "lucide-react";
 import { branchesService } from "../services/branches.service.js";
 import { usersService } from "../services/users.service.js";
 import { systemService } from "../services/system.service.js";
 import { auditService } from "../services/audit.service.js";
+import { formatError } from "../lib/api.js";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("trees"); // trees | users
@@ -20,10 +21,7 @@ export default function Admin() {
   const [creatingBranch, setCreatingBranch] = useState(false);
 
   // Mock Global Events (BE spec không đề cập rõ service này)
-  const [globalEvents, setGlobalEvents] = useState([
-    { id: 1, title: "Chúc mừng năm mới Giáp Thìn", status: "Active", type: "Banner" },
-    { id: 2, title: "Thông báo bảo trì hệ thống 00:00", status: "Inactive", type: "Alert" }
-  ]);
+  const [globalEvents, setGlobalEvents] = useState([]);
 
   const [auditLogs, setAuditLogs] = useState([]);
 
@@ -41,7 +39,7 @@ export default function Admin() {
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.data || []));
       setAuditLogs(Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data?.data || []));
     } catch (e) {
-      setErr(e.message || "Không thể tải dữ liệu quản trị từ Backend");
+      setErr(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -59,7 +57,7 @@ export default function Admin() {
       }
     } catch (e) {
       setHealthStatus("Error");
-      setErr("Lỗi kiểm tra sức khỏe hệ thống: " + e.message);
+      setErr("Lỗi kiểm tra sức khỏe hệ thống: " + formatError(e));
     } finally {
       setCheckingHealth(false);
     }
@@ -72,7 +70,7 @@ export default function Admin() {
       alert("Cập nhật trạng thái thành công!");
       load();
     } catch (e) {
-      alert("Lỗi: " + e.message);
+      alert(formatError(e));
     }
   }
 
@@ -80,11 +78,11 @@ export default function Admin() {
     const newRole = currentRole === "member" ? "editor" : "member";
     if (!confirm(`Chuyển vai trò thành ${newRole.toUpperCase()}?`)) return;
     try {
-        await usersService.updateRole(userId, { role: newRole });
-        alert("Cập nhật quyền thành công!");
-        load();
+      await usersService.updateRole(userId, { role: newRole });
+      alert("Cập nhật quyền thành công!");
+      load();
     } catch (e) {
-        alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
+      alert(formatError(e));
     }
   }
 
@@ -93,16 +91,39 @@ export default function Admin() {
     setCreatingBranch(true);
     try {
       await branchesService.create(branchForm);
-      alert("Tạo chi nhánh thành công!");
+      alert("Tạo chi cành thành công!");
       setShowBranchModal(false);
       setBranchForm({ name: "", description: "" });
       load();
     } catch (err) {
-      alert("Lỗi tạo chi nhánh: " + (err.response?.data?.error?.message || err.message));
+      alert(formatError(err));
     } finally {
       setCreatingBranch(false);
     }
   }
+
+  const handleExportCSV = () => {
+    if (auditLogs.length === 0) return alert("Không có dữ liệu để xuất.");
+    const headers = ["ID", "Hành động", "Thời gian", "Người thực hiện", "Đối tượng", "ID Đối tượng"];
+    const rows = auditLogs.map(log => [
+      log._id || log.id,
+      log.action,
+      new Date(log.createdAt || log.time).toLocaleString('vi-VN'),
+      log.actorId?.fullName || log.actorId,
+      log.entityType,
+      log.entityId
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `audit_logs_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -147,14 +168,14 @@ export default function Admin() {
 
               {/* Stats Row */}
               <div className="row" style={{ gap: 20 }}>
-                <StatCard icon={<GitBranch size={24} />} title="Tổng Cây Gia phả" value={trees.length} color="var(--primary-light)" />
-                <StatCard icon={<UsersIcon size={24} />} title="Tổng Tài khoản" value={users.length} color="rgba(34, 197, 94, 0.15)" />
-                <StatCard icon={<Activity size={24} />} title="Traffic Hệ thống" value="Live" color="rgba(236, 72, 153, 0.15)" />
+                <StatCard icon={<GitBranch size={24} />} title="Tổng Cây Gia phả" value={trees.length} color="rgba(184, 134, 11, 0.1)" />
+                <StatCard icon={<UsersIcon size={24} />} title="Tổng Tài khoản" value={users.length} color="rgba(45, 106, 79, 0.1)" />
+                <StatCard icon={<Activity size={24} />} title="Traffic Hệ thống" value="Live" color="rgba(139, 0, 0, 0.05)" />
                 <StatCard
                   icon={<Database size={24} />}
                   title="Health Check"
                   value={healthStatus}
-                  color="rgba(14, 165, 233, 0.15)"
+                  color="rgba(44, 34, 26, 0.05)"
                   onClick={checkHealth}
                   loading={checkingHealth}
                 />
@@ -213,14 +234,16 @@ export default function Admin() {
                               <div className="small" style={{ color: "var(--text-light)" }}>ID: {t._id || t.id}</div>
                             </td>
                             <td>
-                              <div style={{ fontWeight: 500 }}>{t.adminId === DEV_ME.id ? "Hệ thống" : "Người dùng"}</div>
+                              <div style={{ fontWeight: 500 }}>{t.adminId ? "Người dùng" : "Hệ thống"}</div>
                               <div className="small" style={{ color: "var(--text-light)" }}>Admin ID: {t.adminId}</div>
                             </td>
                             <td style={{ textAlign: "center" }}>{t.level || 0}</td>
                             <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {t.description || "Không có mô tả"}
                             </td>
-                            <td><button className="btn small outline">Quản lý</button></td>
+                            <td>
+                              <Link to={`/admin/branches/${t._id || t.id}`} className="btn small outline">Quản lý</Link>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -252,7 +275,7 @@ export default function Admin() {
                             </td>
                             <td>
                               <span className={`badge ${u.role === "admin" ? "public" : (u.role === "editor" ? "internal" : "")}`}>
-                                  {u.role ? u.role.toUpperCase() : "MEMBER"}
+                                {u.role ? u.role.toUpperCase() : "MEMBER"}
                               </span>
                             </td>
                             <td>
@@ -286,7 +309,7 @@ export default function Admin() {
               <div className="card">
                 <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
                   <div style={{ fontWeight: 600, color: "var(--text-dark)", fontSize: 18, display: "flex", gap: 8, alignItems: "center" }}><Megaphone size={20} color="var(--primary)" /> Global Events & Banners</div>
-                  <button className="btn small primary">Tạo Event mới</button>
+                  <button className="btn small primary" onClick={() => alert("Tính năng tạo sự kiện hệ thống đang được phát triển.")}>Tạo Event mới</button>
                 </div>
                 <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
                   <table className="table" style={{ margin: 0, minWidth: 600 }}>
@@ -294,7 +317,9 @@ export default function Admin() {
                       <tr><th>Tiêu đề Banner</th><th>Loại</th><th>Trạng thái</th><th>Hành động</th></tr>
                     </thead>
                     <tbody>
-                      {globalEvents.map(ev => (
+                      {globalEvents.length === 0 ? (
+                        <tr><td colSpan="4" style={{ textAlign: "center", padding: 20 }}>Không có thông báo hệ thống nào.</td></tr>
+                      ) : globalEvents.map(ev => (
                         <tr key={ev.id}>
                           <td style={{ fontWeight: 500 }}>{ev.title}</td>
                           <td><span className="badge internal">{ev.type}</span></td>
@@ -303,7 +328,7 @@ export default function Admin() {
                               ? <span style={{ color: "var(--green)", fontWeight: 500, fontSize: 13 }}>● Đang hiển thị</span>
                               : <span style={{ color: "var(--text-light)", fontWeight: 500, fontSize: 13 }}>○ Đã tắt</span>}
                           </td>
-                          <td><button className="btn small outline">Sửa</button></td>
+                          <td><button className="btn small outline" onClick={() => alert("Tính năng chỉnh sửa sự kiện đang được phát triển.")}>Sửa</button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -321,7 +346,7 @@ export default function Admin() {
                 </div>
 
                 <div className="small" style={{ marginBottom: 16, color: "var(--text-light)" }}>
-                  Ghi nhận mọi thao tác hệ thống (Mock UI).
+                  Ghi nhận mọi thao tác hệ thống (Dữ liệu từ Audit API).
                 </div>
 
                 <div className="stack" style={{ gap: 16 }}>
@@ -337,7 +362,7 @@ export default function Admin() {
                   ))}
                 </div>
 
-                <button className="btn outline" style={{ width: "100%", marginTop: 24, justifyContent: "center" }}>
+                <button className="btn outline" style={{ width: "100%", marginTop: 24, justifyContent: "center" }} onClick={handleExportCSV}>
                   Xem toàn bộ Log (CSV)
                 </button>
               </div>
@@ -347,30 +372,29 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Modal Tạo Chi Nhánh */}
       {showBranchModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-          <div className="card" style={{ width: 450, animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
-            <div className="title-md" style={{ marginBottom: 16 }}>Tạo Chi nhánh / Phả hệ mới</div>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+          <div className="card" style={{ width: 450, animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)", background: "var(--surface)" }}>
+            <div className="title-md" style={{ marginBottom: 16 }}>Tạo Chi cành / Phả hệ mới</div>
             <form className="stack" onSubmit={handleCreateBranch}>
               <div>
-                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Tên chi nhánh</label>
-                <input 
-                  required 
-                  className="input" 
-                  placeholder="VD: Chi họ Nguyễn Đức..." 
-                  value={branchForm.name} 
-                  onChange={e => setBranchForm({...branchForm, name: e.target.value})} 
+                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Tên chi cành</label>
+                <input
+                  required
+                  className="input"
+                  placeholder="VD: Chi họ Nguyễn Đức..."
+                  value={branchForm.name}
+                  onChange={e => setBranchForm({ ...branchForm, name: e.target.value })}
                 />
               </div>
               <div>
                 <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Mô tả chi tiết</label>
-                <textarea 
-                  className="input" 
-                  rows={3} 
-                  placeholder="Giới thiệu về nhánh này..." 
-                  value={branchForm.description} 
-                  onChange={e => setBranchForm({...branchForm, description: e.target.value})} 
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="Giới thiệu về nhánh này..."
+                  value={branchForm.description}
+                  onChange={e => setBranchForm({ ...branchForm, description: e.target.value })}
                 />
               </div>
               <div className="row" style={{ justifyContent: "flex-end", marginTop: 16, gap: 10 }}>

@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { personsService } from "../services/persons.service.js";
-import { relationshipsService } from "../services/relationships.service.js"; // THÊM DÒNG NÀY
-import { DEV_BYPASS_AUTH } from "../dev/devConfig.js";
+import { relationshipsService } from "../services/relationships.service.js";
+import { formatError } from "../lib/api.js";
+
 import { useAuth } from "../store/auth.jsx";
 import { Plus, User, Trash2, Edit, Download, Image as ImageIcon, FileText } from "lucide-react";
 import "../components/FamilyTree.css";
@@ -134,11 +135,10 @@ export default function PersonTree() {
         if (node.spouses === undefined && Array.isArray(res.spouses)) node.spouses = res.spouses;
 
         setTree(node);
-      } else {
         setTree(res);
       }
     } catch (e) {
-      setErr(e.message || "Không thể tải dữ liệu cây gia phả");
+      setErr(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -169,8 +169,8 @@ export default function PersonTree() {
       const branchId = typeof rawBranchId === "object" ? rawBranchId._id : rawBranchId;
 
       if (!branchId) {
-          alert("Không tìm thấy mã Chi nhánh (BranchId). Vui lòng thử lại!");
-          return;
+        alert("Không tìm thấy mã Chi cành (BranchId). Vui lòng thử lại!");
+        return;
       }
 
       const personPayload = {
@@ -225,7 +225,7 @@ export default function PersonTree() {
       }
 
     } catch (err) {
-      alert("Lỗi khi thêm: " + (err.response?.data?.error?.message || err.message));
+      alert(formatError(err));
     }
   };
 
@@ -239,7 +239,7 @@ export default function PersonTree() {
       link.href = canvas.toDataURL("image/png");
       link.click();
     } catch (error) {
-      alert("Lỗi khi xuất ảnh: " + error.message);
+      alert("Lỗi khi xuất ảnh: " + formatError(error));
     } finally {
       setExporting(false);
     }
@@ -344,10 +344,10 @@ export default function PersonTree() {
                 <div className="small" style={{ fontWeight: 600, color: "#3b82f6" }}>Chuyển Gốc Cây lên Cha/Mẹ:</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {tree.parents.map(parent => (
-                    <div 
-                      key={parent._id || parent.id} 
-                      className="badge" 
-                      style={{ cursor: "pointer", background: "#fff", color: "#3b82f6", border: "1px solid #3b82f6", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }} 
+                    <div
+                      key={parent._id || parent.id}
+                      className="badge"
+                      style={{ cursor: "pointer", background: "#fff", color: "#3b82f6", border: "1px solid #3b82f6", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }}
                       onClick={() => nav(`/persons/${parent._id || parent.id}/tree`)}
                     >
                       Xem từ {parent.fullName || parent.name}

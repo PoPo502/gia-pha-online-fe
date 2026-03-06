@@ -6,9 +6,12 @@ import { usersService } from "../services/users.service.js";
 import { useDebounce } from "../hooks/useDebounce.js";
 import { GitBranch, Users, Trash2, Plus, ArrowLeft, Shield, Search, X } from "lucide-react";
 
+import { useAuth } from "../store/auth.jsx";
+
 export default function BranchDetail() {
     const { id } = useParams();
     const nav = useNavigate();
+    const { me } = useAuth();
     const [branch, setBranch] = useState(null);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,10 +20,10 @@ export default function BranchDetail() {
     // Add Member states
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [foundUsers, setFoundUsers] = useState([]);
     const [searching, setSearching] = useState(false);
+    const [foundUsers, setFoundUsers] = useState([]);
     const [submitting, setSubmitting] = useState(false);
-    const [selectedRole, setSelectedRole] = useState("viewer");
+    const [selectedRoles, setSelectedRoles] = useState({});
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
@@ -34,7 +37,7 @@ export default function BranchDetail() {
             setBranch(bRes.data || bRes);
             setMembers(mRes.data || mRes || []);
         } catch (e) {
-            setErr("Lỗi khi tải dữ liệu chi nhánh: " + e.message);
+            setErr("Lỗi khi tải dữ liệu chi cành: " + e.message);
         } finally {
             setLoading(false);
         }
@@ -51,7 +54,7 @@ export default function BranchDetail() {
     }, [debouncedSearchTerm]);
 
     const handleRemoveMember = async (userId) => {
-        if (!confirm("Bạn có chắc muốn xóa thành viên này khỏi chi nhánh?")) return;
+        if (!confirm("Bạn có chắc muốn xóa thành viên này khỏi chi cành?")) return;
         try {
             await branchesService.removeMember(id, userId);
             alert("Đã gỡ thành viên!");
@@ -77,12 +80,14 @@ export default function BranchDetail() {
 
     const handleAddMember = async (userId) => {
         setSubmitting(true);
+        const roleToAssign = selectedRoles[userId] || "viewer";
         try {
-            await branchesService.addMember(id, { userId, roleInBranch: selectedRole });
-            alert("Đã thêm quản trị viên thành công!");
+            await branchesService.addMember(id, { userId, roleInBranch: roleToAssign });
+            alert(`Đã thêm thành viên với vai trò ${roleToAssign.toUpperCase()} thành công!`);
             setShowAddModal(false);
             setSearchTerm("");
             setFoundUsers([]);
+            setSelectedRoles({});
             loadData();
         } catch (e) {
             alert("Lỗi khi thêm thành viên: " + e.message);
@@ -92,6 +97,17 @@ export default function BranchDetail() {
     };
 
     if (loading) return <><Topbar /><div className="container">Đang tải...</div></>;
+
+    // Role checks
+    const isGlobalAdmin = me?.role === "admin";
+    const isBranchOwner = branch?.ownerId === (me?._id || me?.id);
+    const branchMember = members.find(m => {
+        const uid = m.userId?._id || m.userId;
+        return uid === (me?._id || me?.id);
+    });
+    const isBranchEditor = branchMember?.roleInBranch === "editor";
+    // global 'editor' might optionally manage branch too, but let's stick to true branch admins
+    const canManageMembers = isGlobalAdmin || isBranchOwner || isBranchEditor;
 
     return (
         <>
@@ -111,11 +127,11 @@ export default function BranchDetail() {
                                     <GitBranch size={32} />
                                 </div>
                                 <div>
-                                    <div className="title-md" style={{ marginBottom: 4 }}>Chi nhánh: {branch?.name}</div>
+                                    <div className="title-md" style={{ marginBottom: 4 }}>Chi cành: {branch?.name}</div>
                                     <div className="small" style={{ color: "var(--text-light)" }}>ID: {id}</div>
                                 </div>
                             </div>
-                            <p style={{ color: "var(--text-dark)", lineHeight: 1.6 }}>{branch?.description || "Không có mô tả chi tiết cho chi nhánh này."}</p>
+                            <p style={{ color: "var(--text-dark)", lineHeight: 1.6 }}>{branch?.description || "Không có mô tả chi tiết cho chi cành này."}</p>
                         </div>
 
                         <div className="card">
@@ -123,9 +139,11 @@ export default function BranchDetail() {
                                 <div style={{ fontWeight: 700, fontSize: 18, display: "flex", gap: 8, alignItems: "center" }}>
                                     <Users size={20} color="var(--primary)" /> Danh sách Thành viên Quản trị
                                 </div>
-                                <button className="btn small primary" onClick={() => setShowAddModal(true)}>
-                                    <Plus size={16} /> Thêm người quản lý
-                                </button>
+                                {canManageMembers && (
+                                    <button className="btn small primary" onClick={() => setShowAddModal(true)}>
+                                        <Plus size={16} /> Thêm người quản lý
+                                    </button>
+                                )}
                             </div>
 
                             <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
@@ -154,13 +172,15 @@ export default function BranchDetail() {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <button
-                                                            onClick={() => handleRemoveMember(uid)}
-                                                            style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}
-                                                            title="Gỡ thành viên"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
+                                                        {canManageMembers && (
+                                                            <button
+                                                                onClick={() => handleRemoveMember(uid)}
+                                                                style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer" }}
+                                                                title="Gỡ thành viên"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -181,7 +201,7 @@ export default function BranchDetail() {
                                 </div>
                                 <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--green)", fontWeight: 700 }}>
-                                    <Shield size={16} /> Chi nhánh an toàn
+                                    <Shield size={16} /> Chi cành an toàn
                                 </div>
                             </div>
                         </div>
@@ -229,8 +249,8 @@ export default function BranchDetail() {
                                                     <select
                                                         className="select small"
                                                         style={{ width: 100, padding: "4px 8px" }}
-                                                        value={selectedRole}
-                                                        onChange={e => setSelectedRole(e.target.value)}
+                                                        value={selectedRoles[u._id || u.id] || "viewer"}
+                                                        onChange={e => setSelectedRoles(prev => ({ ...prev, [u._id || u.id]: e.target.value }))}
                                                     >
                                                         <option value="viewer">Viewer</option>
                                                         <option value="editor">Editor</option>

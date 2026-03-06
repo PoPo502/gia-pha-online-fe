@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { CheckCircle, XCircle, Clock, Image as ImageIcon, Video, FileText, AlertCircle } from "lucide-react";
 import { moderationService } from "../services/moderation.service.js";
+import { formatError } from "../lib/api.js";
 
 export default function Moderation() {
     const [activeTab, setActiveTab] = useState("pending");
@@ -16,7 +17,7 @@ export default function Moderation() {
             const res = await moderationService.getPending();
             setItems(res || []);
         } catch (e) {
-            setErr("Lỗi: " + e.message);
+            setErr(formatError(e));
         } finally {
             setLoading(false);
         }
@@ -27,9 +28,9 @@ export default function Moderation() {
     const handleAction = async (id, newStatus) => {
         try {
             await moderationService.updateStatus(id, newStatus);
-            setItems(items.map(item => item.id === id ? { ...item, status: newStatus } : item));
+            setItems(prev => prev.map(item => item.id === id ? { ...item, status: newStatus } : item));
         } catch (e) {
-            setErr("Không thể cập nhật trạng thái: " + e.message);
+            setErr(formatError(e));
         }
     };
 
@@ -52,10 +53,10 @@ export default function Moderation() {
             <div className="container" style={{ maxWidth: 860 }}>
                 <div className="title-md" style={{ marginBottom: 8 }}>Trạm kiểm duyệt Nội dung</div>
                 <div className="small" style={{ color: "var(--text-light)", marginBottom: 24 }}>
-                    Kiểm duyệt bài viết, hình ảnh, và yêu cầu từ các thành viên trong nhánh (Kế nối API Backend).
+                    Kiểm duyệt bài viết, hình ảnh, và yêu cầu từ các thành viên trong nhánh (Kết nối API Backend).
                 </div>
 
-                {err && <div className="card" style={{ color: "var(--danger)", marginBottom: 16, background: "rgba(239, 68, 68, 0.1)" }}>{err}</div>}
+                {err && <div className="card" style={{ color: "var(--danger)", marginBottom: 16, background: "rgba(139, 0, 0, 0.05)", border: "1px solid var(--danger)" }}>{err}</div>}
 
                 {/* Tabs */}
                 <div className="tabs" style={{ marginBottom: 24, display: "flex", gap: 8, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
@@ -120,7 +121,7 @@ export default function Moderation() {
 
                                 {item.status === "pending" && (
                                     <div className="row" style={{ gap: 12, justifyContent: "flex-end", marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-                                        <button className="btn outline" style={{ color: "var(--danger)", borderColor: "rgba(239, 68, 68, 0.2)" }} onClick={() => handleAction(item.id, "rejected")}>
+                                        <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)", background: "transparent" }} onClick={() => handleAction(item.id, "rejected")}>
                                             <XCircle size={16} style={{ marginRight: 6 }} /> Từ chối
                                         </button>
                                         <button className="btn primary" onClick={() => handleAction(item.id, "approved")}>

@@ -4,7 +4,13 @@ import { useAuth } from "../store/auth.jsx";
 import { Calendar, Video, Plus, Users, Clock, MapPin, Radio } from "lucide-react";
 import { eventsService } from "../services/events.service.js";
 import { branchesService } from "../services/branches.service.js";
+import { formatError } from "../lib/api.js";
+import CalendarModal from "../components/CalendarModal.jsx";
 
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { vi } from "date-fns/locale";
+registerLocale("vi", vi);
 
 export default function Events() {
     const { me } = useAuth();
@@ -19,6 +25,7 @@ export default function Events() {
     const [streams, setStreams] = useState([]);
     const [loading, setLoading] = useState(true);
     const [approvingId, setApprovingId] = useState(null);
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     // Phân loại sự kiện theo trạng thái
     const pendingEvents = events.filter(e => !e.status || e.status === "pending");
@@ -44,7 +51,8 @@ export default function Events() {
             // Real streams would go here
             setStreams([]);
         } catch (e) {
-            console.error("Failed to fetch events", e);
+            // Silently log or handle if needed, but fetchEvents is called on load
+            console.error(formatError(e));
         } finally {
             setLoading(false);
         }
@@ -55,7 +63,63 @@ export default function Events() {
     }, []);
 
     const [branches, setBranches] = useState([]);
-    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
+    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: null, location: "", description: "", privacy: "internal", personIdsText: "" });
+
+    // States cho Địa lý (Tỉnh/Huyện/Xã)
+    const [provinces, setProvinces] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [wards, setWards] = useState([]);
+    const [locState, setLocState] = useState({ provCode: "", provName: "", distCode: "", distName: "", wardCode: "", wardName: "", detail: "" });
+
+    useEffect(() => {
+        fetch("https://provinces.open-api.vn/api/p/")
+            .then(res => res.json())
+            .then(data => setProvinces(data))
+            .catch(console.error);
+    }, []);
+
+    const updateLocationString = (pName, dName, wName, detail) => {
+        const parts = [detail, wName, dName, pName].filter(Boolean);
+        setFormData(s => ({ ...s, location: parts.join(", ") }));
+    };
+
+    const handleProvChange = async (e) => {
+        const code = e.target.value;
+        const name = code ? e.target.options[e.target.selectedIndex].text : "";
+        setLocState(s => ({ ...s, provCode: code, provName: name, distCode: "", distName: "", wardCode: "", wardName: "" }));
+        setDistricts([]);
+        setWards([]);
+        if (code) {
+            const res = await fetch(`https://provinces.open-api.vn/api/p/${code}?depth=2`).then(r => r.json());
+            setDistricts(res.districts || []);
+        }
+        updateLocationString(name, "", "", locState.detail);
+    };
+
+    const handleDistChange = async (e) => {
+        const code = e.target.value;
+        const name = code ? e.target.options[e.target.selectedIndex].text : "";
+        setLocState(s => ({ ...s, distCode: code, distName: name, wardCode: "", wardName: "" }));
+        setWards([]);
+        if (code) {
+            const res = await fetch(`https://provinces.open-api.vn/api/d/${code}?depth=2`).then(r => r.json());
+            setWards(res.wards || []);
+        }
+        updateLocationString(locState.provName, name, "", locState.detail);
+    };
+
+    const handleWardChange = (e) => {
+        const code = e.target.value;
+        const name = code ? e.target.options[e.target.selectedIndex].text : "";
+        setLocState(s => ({ ...s, wardCode: code, wardName: name }));
+        updateLocationString(locState.provName, locState.distName, name, locState.detail);
+    };
+
+    const handleLocDetailChange = (e) => {
+        const val = e.target.value;
+        setLocState(s => ({ ...s, detail: val }));
+        updateLocationString(locState.provName, locState.distName, locState.wardName, val);
+    };
 
     useEffect(() => {
         (async () => {
@@ -84,7 +148,7 @@ export default function Events() {
                 (e._id || e.id) === eventId ? { ...e, status: "approved" } : e
             ));
         } catch (e) {
-            alert("Lỗi khi duyệt sự kiện: " + e.message);
+            alert(formatError(e));
         } finally {
             setApprovingId(null);
         }
@@ -97,7 +161,7 @@ export default function Events() {
             await eventsService.updateStatus(eventId, "rejected");
             setEvents(prev => prev.filter(e => (e._id || e.id) !== eventId));
         } catch (e) {
-            alert("Lỗi khi từ chối sự kiện: " + e.message);
+            alert(formatError(e));
         } finally {
             setApprovingId(null);
         }
@@ -109,7 +173,7 @@ export default function Events() {
             await eventsService.remove(eventId);
             setEvents(prev => prev.filter(e => (e._id || e.id) !== eventId));
         } catch (e) {
-            alert("Lỗi: " + (e.response?.data?.error?.message || e.message));
+            alert(formatError(e));
         }
     };
 
@@ -137,35 +201,41 @@ export default function Events() {
                 alert(isAdmin ? "Đã tạo sự kiện thành công!" : "Đã gửi yêu cầu tạo sự kiện thành công. Vui lòng chờ Ban quản trị duyệt!");
             }
 
-            fetchEvents();
             setShowAddModal(false);
             setEditEventId(null);
-            setFormData({ branchId: branches[0]?._id || "", title: "", type: "other", eventDate: "", location: "", description: "", privacy: "internal", personIdsText: "" });
+            setFormData({ branchId: branches[0]?._id || "", title: "", type: "other", eventDate: null, location: "", description: "", privacy: "internal", personIdsText: "" });
+            setLocState({ provCode: "", provName: "", distCode: "", distName: "", wardCode: "", wardName: "", detail: "" });
+            setDistricts([]);
+            setWards([]);
         } catch (err) {
-            alert("Lỗi: " + (err.response?.data?.error?.message || err.message));
+            alert(formatError(err));
         }
     };
 
     const openEditModal = (ev) => {
         setEditEventId(ev._id || ev.id);
 
-        // Định dạng lại ngày để hiển thị vào input datetime-local
-        let formattedDate = "";
+        let parsedDate = null;
         if (ev.eventDate) {
-            const d = new Date(ev.eventDate);
-            formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            parsedDate = new Date(ev.eventDate);
         }
 
         setFormData({
             branchId: ev.branchId?._id || ev.branchId || "",
             title: ev.title || "",
             type: ev.type || "other",
-            eventDate: formattedDate,
+            eventDate: parsedDate,
             location: ev.location || "",
             description: ev.description || "",
             privacy: ev.privacy || "internal",
             personIdsText: (ev.personIds || []).map(p => typeof p === 'object' ? p._id : p).join(", ")
         });
+
+        // Gán toàn bộ địa chỉ cũ vào ô detail (để đảm bảo không mất dữ liệu cũ của user)
+        setLocState({ provCode: "", provName: "", distCode: "", distName: "", wardCode: "", wardName: "", detail: ev.location || "" });
+        setDistricts([]);
+        setWards([]);
+
         setShowAddModal(true);
     };
 
@@ -254,18 +324,18 @@ export default function Events() {
                                                         Đăng ký tham gia
                                                     </button>
                                                 ) : (
-                                                    <button className="btn" style={{ background: "#e0f2fe", color: "var(--primary)", fontWeight: "bold" }} onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: false }))}>
+                                                    <button className="btn" style={{ background: "rgba(184, 134, 11, 0.1)", color: "var(--accent)", fontWeight: "bold" }} onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: false }))}>
                                                         ✓ Đã đăng ký
                                                     </button>
                                                 )
                                             )}
-                                            {isAdmin && (
+                                            {(isAdmin || (ev.createdBy && (ev.createdBy._id || ev.createdBy) === (me?._id || me?.id))) && (
                                                 <>
                                                     <button className="btn outline" onClick={() => openEditModal(ev)}>Chỉnh sửa</button>
                                                     <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
                                                 </>
                                             )}
-                                            <button className="btn outline">Xem chi tiết</button>
+                                            <button className="btn outline" onClick={() => alert("Tính năng xem chi tiết sự kiện đang được phát triển.")}>Xem chi tiết</button>
                                         </div>
                                     </div>
                                 ))}
@@ -366,7 +436,7 @@ export default function Events() {
                                 <div style={{ fontWeight: 600, color: "var(--text-dark)" }}>Tiện ích ngày tháng</div>
                             </div>
                             <p className="small" style={{ marginBottom: 16 }}>Hệ thống tự động quy đổi ngày giỗ từ Âm lịch sang Dương lịch vào mỗi năm để nhắc nhở con cháu chuẩn bị.</p>
-                            <button className="btn outline" style={{ width: "100%", justifyContent: "center", background: "#fff" }}>Xem Lịch Âm Toàn Tập</button>
+                            <button className="btn outline" style={{ width: "100%", justifyContent: "center", background: "var(--surface)" }} onClick={() => setIsCalendarOpen(true)}>Xem Lịch Âm Toàn Tập</button>
                         </div>
                     </div>
 
@@ -374,30 +444,33 @@ export default function Events() {
 
             </div>
 
-            {/* Add Modal */}
             {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-                    <div className="card" style={{ width: 500, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
-                        <div className="title-md" style={{ marginBottom: 16 }}>
-                            {editEventId ? "Chỉnh sửa sự kiện" : "Tạo sự kiện hoặc Phát trực tiếp"}
+                <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 500, maxWidth: "90vw", padding: 32, borderRadius: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.2)", background: "var(--surface)" }}>
+                        <div className="title-md" style={{ marginBottom: 20, fontSize: 22, fontWeight: 800 }}>
+                            {editEventId ? "Chỉnh sửa sự kiện" : "Tạo sự kiện & Phát trực tiếp"}
                         </div>
 
                         {(!isAdmin && !editEventId) && (
-                            <div style={{ background: "rgba(239, 68, 68, 0.1)", color: "var(--danger)", padding: "12px", borderRadius: "8px", marginBottom: "16px", fontSize: "14px", fontWeight: "500", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
-                                ℹ️ Sự kiện bạn tạo sẽ được đưa vào hàng chờ duyệt. Vui lòng chờ Ban quản trị (Admin) kiểm duyệt trước khi hiển thị công khai.
+                            <div style={{ background: "rgba(239, 68, 68, 0.05)", color: "var(--danger)", padding: "14px", borderRadius: "12px", marginBottom: "20px", fontSize: "14px", fontWeight: "500", border: "1px solid rgba(239, 68, 68, 0.1)", lineHeight: 1.5 }}>
+                                ℹ️ Sự kiện bạn tạo sẽ được đưa vào hàng chờ duyệt. Vui lòng chờ Ban quản trị kiểm duyệt trước khi hiển thị.
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmitEvent} className="stack" style={{ gap: 12 }}>
+                        <form onSubmit={handleSubmitEvent} className="stack" style={{ gap: 16 }}>
                             <div>
-                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Chi nhánh (Branch)</label>
+                                <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Chi cành (Branch)</label>
                                 <select
                                     className="select"
+                                    style={{ borderRadius: 12, padding: "10px 12px" }}
                                     required
                                     value={formData.branchId}
-                                    onChange={(e) => setFormData((s) => ({ ...s, branchId: e.target.value }))}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData(s => ({ ...s, branchId: val }));
+                                    }}
                                 >
-                                    {branches.length === 0 && <option value="">(Chưa có chi nhánh)</option>}
+                                    {!formData.branchId && <option value="">Chọn chi cành...</option>}
                                     {branches.map((b) => (
                                         <option key={b._id} value={b._id}>{b.name}</option>
                                     ))}
@@ -405,91 +478,138 @@ export default function Events() {
                             </div>
 
                             <div>
-                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Tiêu đề</label>
+                                <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Tiêu đề sự kiện</label>
                                 <input
                                     required
                                     className="input"
-                                    placeholder="Nhập tiêu đề..."
+                                    style={{ borderRadius: 12, padding: "12px 14px" }}
+                                    placeholder="VD: Lễ khởi công xây dựng nhà thờ dòng họ"
                                     value={formData.title}
-                                    onChange={(e) => setFormData((s) => ({ ...s, title: e.target.value }))}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData(s => ({ ...s, title: val }));
+                                    }}
                                 />
                             </div>
 
                             <div className="row" style={{ gap: 12 }}>
                                 <div style={{ flex: 1 }}>
-                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Loại sự kiện</label>
+                                    <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Loại sự kiện</label>
                                     <select
                                         className="select"
+                                        style={{ borderRadius: 12, padding: "10px 12px" }}
                                         value={formData.type}
-                                        onChange={(e) => setFormData((s) => ({ ...s, type: e.target.value }))}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(s => ({ ...s, type: val }));
+                                        }}
                                     >
+                                        <option value="anniversary">Giỗ / Kỷ niệm</option>
                                         <option value="birth">Sinh</option>
                                         <option value="death">Mất</option>
                                         <option value="marriage">Kết hôn</option>
-                                        <option value="anniversary">Giỗ / Kỷ niệm</option>
                                         <option value="other">Khác</option>
                                     </select>
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Thời gian</label>
-                                    <input
+                                    <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Thời gian</label>
+                                    <DatePicker
                                         className="input"
-                                        type="datetime-local"
-                                        value={formData.eventDate}
-                                        onChange={(e) => setFormData((s) => ({ ...s, eventDate: e.target.value }))}
+                                        wrapperClassName="datepicker-fullwidth"
+                                        selected={formData.eventDate ? new Date(formData.eventDate) : null}
+                                        onChange={(date) => setFormData(s => ({ ...s, eventDate: date }))}
+                                        showTimeSelect
+                                        timeFormat="HH:mm"
+                                        timeIntervals={15}
+                                        timeCaption="Giờ"
+                                        dateFormat="dd/MM/yyyy HH:mm"
+                                        locale="vi"
+                                        placeholderText="Chọn ngày giờ..."
                                     />
                                 </div>
                             </div>
 
                             <div className="row" style={{ gap: 12 }}>
                                 <div style={{ flex: 1 }}>
-                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Privacy</label>
+                                    <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Quyền xem</label>
                                     <select
                                         className="select"
+                                        style={{ borderRadius: 12, padding: "10px 12px" }}
                                         value={formData.privacy}
-                                        onChange={(e) => setFormData((s) => ({ ...s, privacy: e.target.value }))}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(s => ({ ...s, privacy: val }));
+                                        }}
                                     >
-                                        <option value="public">public</option>
-                                        <option value="internal">internal</option>
-                                        <option value="sensitive">sensitive</option>
+                                        <option value="public">Công khai</option>
+                                        <option value="internal">Nội bộ họ</option>
+                                        <option value="sensitive">Nhạy cảm</option>
                                     </select>
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Person IDs (tuỳ chọn)</label>
+                                    <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Mã người liên quan</label>
                                     <input
                                         className="input"
-                                        placeholder="vd: 65f..., 65a..., ..."
+                                        style={{ borderRadius: 12, padding: "12px 14px" }}
+                                        placeholder="Cách nhau bằng dấu phẩy"
                                         value={formData.personIdsText}
-                                        onChange={(e) => setFormData((s) => ({ ...s, personIdsText: e.target.value }))}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(s => ({ ...s, personIdsText: val }));
+                                        }}
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Địa điểm</label>
+                                <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Địa điểm tổ chức</label>
+                                <div className="row" style={{ gap: 12, marginBottom: 12 }}>
+                                    <select className="select" style={{ flex: 1, borderRadius: 12, padding: "10px 12px" }} value={locState.provCode} onChange={handleProvChange}>
+                                        <option value="">Tỉnh / Thành phố...</option>
+                                        {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                                    </select>
+                                    <select className="select" style={{ flex: 1, borderRadius: 12, padding: "10px 12px" }} value={locState.distCode} onChange={handleDistChange} disabled={!locState.provCode}>
+                                        <option value="">Quận / Huyện...</option>
+                                        {districts.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                                    </select>
+                                    <select className="select" style={{ flex: 1, borderRadius: 12, padding: "10px 12px" }} value={locState.wardCode} onChange={handleWardChange} disabled={!locState.distCode}>
+                                        <option value="">Phường / Xã...</option>
+                                        {wards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+                                    </select>
+                                </div>
                                 <input
                                     className="input"
-                                    placeholder="Địa điểm..."
-                                    value={formData.location}
-                                    onChange={(e) => setFormData((s) => ({ ...s, location: e.target.value }))}
+                                    style={{ borderRadius: 12, padding: "12px 14px" }}
+                                    placeholder="Số nhà, tên tòa nhà, tên đường..."
+                                    value={locState.detail}
+                                    onChange={handleLocDetailChange}
                                 />
+                                {formData.location && (
+                                    <div className="small" style={{ marginTop: 6, color: "var(--text-light)", fontStyle: "italic" }}>
+                                        Địa chỉ ghi nhận: {formData.location}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
-                                <label className="small" style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>Mô tả</label>
+                                <label className="small" style={{ fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text-dark)" }}>Mô tả chi tiết</label>
                                 <textarea
                                     className="input"
-                                    placeholder="Mô tả..."
+                                    style={{ borderRadius: 12, padding: "12px 14px", minHeight: 100 }}
+                                    placeholder="Nhiều nội dung chi tiết hơn về sự kiện..."
                                     rows={4}
                                     value={formData.description}
-                                    onChange={(e) => setFormData((s) => ({ ...s, description: e.target.value }))}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData(s => ({ ...s, description: val }));
+                                    }}
                                 />
                             </div>
 
-                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
-                                <button type="button" className="btn outline" onClick={() => { setShowAddModal(false); setEditEventId(null); }}>Hủy</button>
-                                <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title}>
-                                    {editEventId ? "Lưu thay đổi" : (isAdmin ? "Tạo sự kiện" : "Gửi yêu cầu phê duyệt")}
+                            <div className="row" style={{ justifyContent: "flex-end", marginTop: 12, gap: 12 }}>
+                                <button type="button" className="btn outline" style={{ borderRadius: 12, padding: "12px 24px" }} onClick={() => { setShowAddModal(false); setEditEventId(null); setLocState({ provCode: "", provName: "", distCode: "", distName: "", wardCode: "", wardName: "", detail: "" }); }}>Hủy bỏ</button>
+                                <button className="btn primary" type="submit" disabled={!formData.branchId || !formData.title} style={{ borderRadius: 12, padding: "12px 24px", fontWeight: 700 }}>
+                                    {editEventId ? "Lưu thay đổi" : (isAdmin ? "Tạo sự kiện ngay" : "Gửi yêu cầu")}
                                 </button>
                             </div>
                         </form>
@@ -503,7 +623,17 @@ export default function Events() {
           70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
           100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+        .datepicker-fullwidth {
+            width: 100%;
+        }
+        .datepicker-fullwidth .input {
+            width: 100%;
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
       `}</style>
+            <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} />
         </>
     );
 }
+
