@@ -142,8 +142,28 @@ export default function CalendarModal({ isOpen, onClose }) {
     const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
     return (
-        <div className="modal-overlay" style={{ zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div className="modal-content" style={{ maxWidth: 900, width: "95%", borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", maxHeight: "90vh", overflowY: "auto" }}>
+        <div className="modal-overlay" style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(44, 34, 26, 0.5)",
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: "blur(4px)"
+        }}>
+            <div className="modal-content" style={{
+                maxWidth: 900,
+                width: "95%",
+                borderRadius: 24,
+                padding: 32,
+                display: "flex",
+                flexDirection: "column",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                background: "var(--surface)",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
+            }}>
                 <div className="modal-header" style={{ marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div className="avatar" style={{ background: "var(--primary-light)", color: "var(--primary)", width: 44, height: 44 }}>
