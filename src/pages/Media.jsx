@@ -135,7 +135,7 @@ export default function Media() {
                     }}>
                         {items.map(item => (
                             <div key={item.id} className="card" style={{ padding: 0, overflow: "hidden", position: "relative", group: "true" }}>
-                                <div style={{ height: 200, background: "#000", position: "relative" }}>
+                                <div style={{ height: 200, background: "var(--bg-body)", position: "relative" }}>
                                     {item.type === "video" ? (
                                         <video src={item.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                     ) : (
@@ -146,9 +146,9 @@ export default function Media() {
                                         background: "rgba(0,0,0,0.3)", opacity: 0, transition: "0.2s",
                                         display: "flex", alignItems: "center", justifyContent: "center", gap: 12
                                     }} className="hover-show">
-                                        <button className="btn small" onClick={() => setPreviewItem(item)} style={{ background: "#fff", color: "#333" }}><Maximize2 size={16} /></button>
+                                        <button className="btn small" onClick={() => setPreviewItem(item)} style={{ background: "var(--surface-solid)", color: "var(--text-dark)" }}><Maximize2 size={16} /></button>
                                         {canDelete(item) && (
-                                            <button className="btn small" onClick={() => handleDelete(item._id || item.id)} style={{ background: "rgba(239, 68, 68, 0.8)", color: "#fff" }}><Trash2 size={16} /></button>
+                                            <button className="btn small" onClick={() => handleDelete(item._id || item.id)} style={{ background: "var(--danger)", color: "#fff" }}><Trash2 size={16} /></button>
                                         )}
                                     </div>
                                 </div>

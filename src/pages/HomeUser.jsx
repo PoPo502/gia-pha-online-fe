@@ -345,17 +345,21 @@ export default function HomeUser() {
 
                                 {/* Không hiện inline edit nữa - dùng modal thông qua editingPostId */}
                                 <div style={{ marginBottom: 16, fontSize: 15, lineHeight: 1.5 }}>{post.content}</div>
-                                const imgPath = post.image_url || post.image;
-                                if (!imgPath) return null;
-                                const src = imgPath.startsWith('http') || imgPath.startsWith('data:') || imgPath.startsWith('blob:')
-                                ? imgPath
-                                : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgPath.startsWith('/') ? imgPath : `/${imgPath}`);
-
-                                return (
-                                <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-                                    <img src={src} alt="Post media" style={{ width: "100%", maxHeight: 500, objectFit: "cover", display: "block" }} />
-                                </div>
-                                )
+                                {(() => {
+                                    const imgPath = post.image_url || post.image;
+                                    if (!imgPath) return null;
+                                    const src = imgPath.startsWith('http') || imgPath.startsWith('data:') || imgPath.startsWith('blob:')
+                                        ? imgPath
+                                        : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgPath.startsWith('/') ? imgPath : `/${imgPath}`);
+                                    return (
+                                        <div style={{ margin: "0 -20px 16px", overflow: "hidden", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--bg-body)", display: "flex", alignItems: "center", justifyContent: "center", maxHeight: 480 }}>
+                                            <img
+                                                src={src}
+                                                alt="Post media"
+                                                style={{ width: "100%", maxHeight: 480, objectFit: "cover", display: "block", objectPosition: "center" }}
+                                            />
+                                        </div>
+                                    );
                                 })()}
                                 <div style={{ display: "flex", gap: 16, padding: "8px 0", color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
                                     <div onClick={() => handleLike(post.id || post._id)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: isLiked ? "var(--red)" : "inherit", fontWeight: isLiked ? 600 : "normal" }}>
@@ -561,6 +565,88 @@ export default function HomeUser() {
                     </div>
                 </div>
             )}
+            {/* Modal Sửa bài viết - Đầy đủ như Facebook */}
+            {editingPostId && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(4px)" }}>
+                    <div className="card" style={{ width: 520, maxWidth: "95vw", padding: 0, borderRadius: 16, boxShadow: "0 20px 40px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto" }}>
+                        {/* Header */}
+                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 18, flex: 1, textAlign: "center" }}>Chỉnh sửa bài viết</div>
+                            <button onClick={() => { setEditingPostId(null); setEditingPostImage(null); setEditingPostExistingImage(null); }} style={{ background: "var(--surface-hover)", width: 32, height: 32, borderRadius: "50%", border: "none", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dark)" }}>×</button>
+                        </div>
+
+                        <div style={{ padding: "16px 20px" }}>
+                            {/* Author info */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                                <div className="avatar" style={{ width: 44, height: 44, background: "var(--primary-light)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{(me?.fullName || "U").charAt(0)}</div>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>{me?.fullName || "Thành viên"}</div>
+                            </div>
+
+                            {/* Caption textarea */}
+                            <textarea
+                                autoFocus
+                                placeholder="Bạn đang nghĩ gì?"
+                                value={editingPostContent}
+                                onChange={(e) => setEditingPostContent(e.target.value)}
+                                style={{ width: "100%", minHeight: 120, border: "none", outline: "none", fontSize: 18, resize: "none", fontFamily: "inherit", padding: "4px 0", marginBottom: 16, lineHeight: 1.5 }}
+                            />
+
+                            {/* Ảnh hiện tại hoặc ảnh mới */}
+                            {(() => {
+                                const imgSrc = editingPostImage && editingPostImage !== "REMOVE"
+                                    ? editingPostImage
+                                    : editingPostImage === "REMOVE"
+                                        ? null
+                                        : editingPostExistingImage;
+                                if (!imgSrc) return null;
+                                const src = imgSrc.startsWith('http') || imgSrc.startsWith('data:') || imgSrc.startsWith('blob:')
+                                    ? imgSrc
+                                    : `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}`.replace('/api', '') + (imgSrc.startsWith('/') ? imgSrc : `/${imgSrc}`);
+                                return (
+                                    <div style={{ position: "relative", marginBottom: 16, borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
+                                        <img src={src} alt="Preview" style={{ width: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 12, display: "block" }} />
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingPostImage("REMOVE")}
+                                            style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                            title="Xóa ảnh"
+                                        >×</button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Toolbar thêm ảnh mới */}
+                            <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-dark)" }}>
+                                    {editingPostImage === "REMOVE" || (!editingPostExistingImage && !editingPostImage) ? "Thêm ảnh/video" : "Thay ảnh/video"}
+                                </div>
+                                <label style={{ display: "flex", cursor: "pointer", padding: "6px 12px", borderRadius: 8, background: "var(--surface-hover)", gap: 8, alignItems: "center", fontWeight: 600, fontSize: 14, color: "var(--text-dark)" }}>
+                                    <ImageIcon size={20} color="#41B35D" /> Chọn file
+                                    <input type="file" accept="image/*,video/*" hidden onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => setEditingPostImage(reader.result);
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }} />
+                                </label>
+                            </div>
+
+                            {/* Buttons */}
+                            <button
+                                className="btn primary"
+                                disabled={!editingPostContent.trim()}
+                                style={{ width: "100%", height: 44, borderRadius: 8, fontWeight: 700, fontSize: 16 }}
+                                onClick={() => handleUpdatePost(editingPostId)}
+                            >
+                                Lưu thay đổi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} />
         </>
     );

@@ -103,12 +103,12 @@ export default function ChangePasswordMandatory() {
                         </div>
 
                         {err && (
-                            <div style={{ color: "var(--danger)", padding: 16, background: "rgba(239,68,68,0.08)", borderRadius: 12, fontSize: 14, border: "1px solid rgba(239,68,68,0.15)", fontWeight: 500 }}>
+                            <div style={{ color: "var(--danger)", padding: 16, background: "rgba(139, 0, 0, 0.05)", borderRadius: 12, fontSize: 14, border: "1px solid var(--danger)", fontWeight: 500 }}>
                                 {err}
                             </div>
                         )}
 
-                        <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", padding: 16, marginTop: 12, justifyContent: "center", gap: 10, borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "0 10px 25px rgba(238, 77, 45, 0.25)" }}>
+                        <button className="btn primary" type="submit" disabled={loading} style={{ width: "100%", padding: 16, marginTop: 12, justifyContent: "center", gap: 10, borderRadius: 14, fontWeight: 800, fontSize: 16, boxShadow: "none" }}>
                             {loading ? "Đang xử lý..." : (<>Xác nhận đổi mật khẩu <ArrowRight size={20} /></>)}
                         </button>
                     </form>

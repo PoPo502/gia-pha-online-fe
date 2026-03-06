@@ -207,7 +207,7 @@ export default function HomeSuperAdmin() {
 
             {/* Create Branch Modal */}
             {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
                     <div className="card" style={{ width: 400, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
                         <div className="title-md" style={{ marginBottom: 16 }}>
                             Tạo Dòng họ / Chi cành mới

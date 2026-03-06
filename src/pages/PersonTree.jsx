@@ -33,7 +33,7 @@ function Node({ node, onNodeClick }) {
       }}
       style={{
         borderRadius: 12,
-        border: "2px solid #fff",
+        border: "2px solid var(--border)",
         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         minWidth: 140,
         minHeight: 120,
@@ -48,9 +48,9 @@ function Node({ node, onNodeClick }) {
     >
       {/* ... giữ nguyên phần avatar và name bên trong ... */}
       <div className="tree-node-avatar" style={{
-        background: (person.gender === 'female' ? "rgba(236,72,153,0.1)" : "var(--primary-light)"),
-        color: (person.gender === 'female' ? "#db2777" : "var(--primary)"),
-        borderColor: "#fff",
+        background: (person.gender === 'female' ? "rgba(180, 80, 80, 0.1)" : "var(--primary-light)"),
+        color: (person.gender === 'female' ? "#8b3a3a" : "var(--primary)"),
+        borderColor: "var(--border)",
         marginBottom: "8px"
       }}>
         {(person.fullName || person.name || "U").charAt(0).toUpperCase()}
@@ -332,7 +332,7 @@ export default function PersonTree() {
                 <div className="small" style={{ fontWeight: 600, color: "var(--accent)" }}>Anh/Chị/Em ruột:</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {tree.siblings.map(sib => (
-                    <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "#fff", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
+                    <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
                       👥 {sib.fullName || sib.name}
                     </div>
                   ))}
@@ -340,14 +340,14 @@ export default function PersonTree() {
               </div>
             )}
             {tree && tree.parents && tree.parents.length > 0 && (
-              <div style={{ padding: "12px 24px", background: "rgba(59, 130, 246, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="small" style={{ fontWeight: 600, color: "#3b82f6" }}>Chuyển Gốc Cây lên Cha/Mẹ:</div>
+              <div style={{ padding: "12px 24px", background: "rgba(184, 134, 11, 0.08)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="small" style={{ fontWeight: 600, color: "var(--text-dark)" }}>Chuyển Gốc Cây lên Cha/Mẹ:</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {tree.parents.map(parent => (
                     <div
                       key={parent._id || parent.id}
                       className="badge"
-                      style={{ cursor: "pointer", background: "#fff", color: "#3b82f6", border: "1px solid #3b82f6", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }}
+                      style={{ cursor: "pointer", background: "var(--surface)", color: "var(--primary)", border: "1px solid var(--primary)", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }}
                       onClick={() => nav(`/persons/${parent._id || parent.id}/tree`)}
                     >
                       Xem từ {parent.fullName || parent.name}
@@ -411,7 +411,7 @@ export default function PersonTree() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
           <div className="card" style={{ width: 500, maxWidth: "90vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
             <div className="title-md" style={{ marginBottom: 16 }}>
               {addMode === "root" ? "Thêm người đứng đầu gia phả" : `Thêm người thân cho ${targetNode?.name}`}

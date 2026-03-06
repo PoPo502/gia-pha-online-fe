@@ -211,7 +211,7 @@ export default function BranchDetail() {
 
             {/* Modal Add Member */}
             {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
                     <div className="card" style={{ width: 500, maxWidth: "95vw", animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
                         <div className="row" style={{ justifyContent: "space-between", marginBottom: 20 }}>
                             <div className="title-md">Thêm thành viên quản trị</div>

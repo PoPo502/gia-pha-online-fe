@@ -237,8 +237,8 @@ export default function CalendarModal({ isOpen, onClose }) {
                                     </div>
                                     {birthdays.length > 0 ? (
                                         birthdays.map((b, idx) => (
-                                            <div key={idx} style={{ padding: "12px", background: "rgba(14, 165, 233, 0.05)", borderLeft: "3px solid #0ea5e9", borderRadius: 8, marginBottom: 8 }}>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: "#0ea5e9", marginBottom: 4 }}>Ngày {b.solarDay}/{b.solarMonth}</div>
+                                            <div key={idx} style={{ padding: "12px", background: "rgba(184, 134, 11, 0.07)", borderLeft: "3px solid var(--accent)", borderRadius: 8, marginBottom: 8 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 4 }}>Ngày {b.solarDay}/{b.solarMonth}</div>
                                                 <div style={{ fontSize: 14, color: "var(--text-dark)" }}>{b.title}</div>
                                             </div>
                                         ))

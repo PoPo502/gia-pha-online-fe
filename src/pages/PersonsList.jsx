@@ -180,7 +180,7 @@ export default function PersonsList() {
       </div>
 
       {showAddModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
           <div className="card" style={{ width: 450, animation: "slideDown 0.3s ease" }}>
             <div className="title-md" style={{ marginBottom: 16 }}>Thêm thành viên phả hệ mới</div>
             <form className="stack" onSubmit={async (e) => {
