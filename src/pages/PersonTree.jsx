@@ -133,9 +133,9 @@ export default function PersonTree() {
         if (node.children === undefined && Array.isArray(res.children)) node.children = res.children;
         if (node.parents === undefined && Array.isArray(res.parents)) node.parents = res.parents;
         if (node.spouses === undefined && Array.isArray(res.spouses)) node.spouses = res.spouses;
+        if (node.children === undefined && Array.isArray(res.children)) node.children = res.children;
 
         setTree(node);
-        setTree(res);
       }
     } catch (e) {
       setErr(formatError(e));

@@ -92,14 +92,28 @@ export default function CalendarModal({ isOpen, onClose }) {
         const loadMonthEvents = async () => {
             setLoadingEvents(true);
             try {
-                // Gọi api lay ngay giỗ và sinh nhật (backend đang dùng tham số month)
-                const monthParam = currentDate.getMonth() + 1; // Backend thường xài 1-12
-                const [anniv, birth] = await Promise.all([
-                    calendarService.anniversaries(monthParam),
-                    calendarService.birthdays(monthParam)
-                ]);
-                setAnniversaries(anniv || []);
-                setBirthdays(birth || []);
+                // Solar month overlaps with multiple lunar months.
+                // Fetch current month and the month before/after to be safe.
+                const m = currentDate.getMonth() + 1;
+                const prevM = m === 1 ? 12 : m - 1;
+                const nextM = m === 12 ? 1 : m + 1;
+
+                const fetchPromises = [
+                    calendarService.anniversaries(m),
+                    calendarService.birthdays(m),
+                    calendarService.anniversaries(prevM),
+                    calendarService.birthdays(prevM),
+                    calendarService.anniversaries(nextM),
+                    calendarService.birthdays(nextM)
+                ];
+
+                const [aCur, bCur, aPrev, bPrev, aNext, bNext] = await Promise.all(fetchPromises);
+
+                const safeArr = (val) => Array.isArray(val) ? val : (val?.data || []);
+
+                // Combine and de-duplicate if necessary (though months should be distinct)
+                setAnniversaries([...safeArr(aPrev), ...safeArr(aCur), ...safeArr(aNext)]);
+                setBirthdays([...safeArr(bPrev), ...safeArr(bCur), ...safeArr(bNext)]);
             } catch (e) {
                 console.error(formatError(e));
             } finally {
@@ -189,7 +203,8 @@ export default function CalendarModal({ isOpen, onClose }) {
                                             flexDirection: "column",
                                             alignItems: "center",
                                             justifyContent: "center",
-                                            transition: "all 0.2s"
+                                            transition: "all 0.2s",
+                                            cursor: "default"
                                         }}
                                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = d.isToday ? "var(--primary)" : "var(--border)"; }}
@@ -199,6 +214,16 @@ export default function CalendarModal({ isOpen, onClose }) {
                                         </div>
                                         <div style={{ fontSize: 13, fontWeight: 600, color: d.lunarDay === 1 || d.lunarDay === 15 ? "var(--primary)" : "var(--text-light)", marginTop: 6 }}>
                                             {d.lunarLabel}
+                                        </div>
+
+                                        {/* Indicators for events */}
+                                        <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
+                                            {anniversaries.some(a => a && a.lunarDay === d.lunarDay && a.lunarMonth === d.lunarMonth) && (
+                                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger)" }} title="Giỗ / Sự kiện" />
+                                            )}
+                                            {birthdays.some(b => b && b.lunarDay === d.lunarDay && b.lunarMonth === d.lunarMonth) && (
+                                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} title="Sinh nhật" />
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -219,29 +244,41 @@ export default function CalendarModal({ isOpen, onClose }) {
                             <div className="stack" style={{ gap: 24 }}>
                                 <div>
                                     <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-dark)", marginBottom: 12, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
-                                        LỊCH GIỖ
+                                        LỊCH GIỖ & SỰ KIỆN
                                     </div>
-                                    {anniversaries.length > 0 ? (
-                                        anniversaries.map((a, idx) => (
-                                            <div key={idx} style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: 8, marginBottom: 8 }}>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", marginBottom: 4 }}>Ngày Âm: {a.lunarDay}/{a.lunarMonth}</div>
-                                                <div style={{ fontSize: 14, color: "var(--text-dark)" }}>{a.title}</div>
-                                            </div>
-                                        ))
-                                    ) : <div className="small" style={{ color: "var(--text-light)" }}>Không có ngày giỗ nào.</div>}
+                                    {anniversaries.filter(a => a && daysGrid.some(d => d.lunarDay === a.lunarDay && d.lunarMonth === a.lunarMonth && d.isCurrentMonth)).length > 0 ? (
+                                        anniversaries
+                                            .filter(a => a && daysGrid.some(d => d.lunarDay === a.lunarDay && d.lunarMonth === a.lunarMonth && d.isCurrentMonth))
+                                            .sort((a, b) => a.lunarDay - b.lunarDay)
+                                            .map((a, idx) => (
+                                                <div key={idx} style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: 8, marginBottom: 8 }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", marginBottom: 4 }}>Ngày Âm: {a.lunarDay}/{a.lunarMonth}</div>
+                                                    <div style={{ fontSize: 14, color: "var(--text-dark)" }}>{a.title}</div>
+                                                </div>
+                                            ))
+                                    ) : <div className="small" style={{ color: "var(--text-light)" }}>Không có sự kiện nào.</div>}
                                 </div>
 
                                 <div>
                                     <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-dark)", marginBottom: 12, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
                                         SINH NHẬT
                                     </div>
-                                    {birthdays.length > 0 ? (
-                                        birthdays.map((b, idx) => (
-                                            <div key={idx} style={{ padding: "12px", background: "rgba(184, 134, 11, 0.07)", borderLeft: "3px solid var(--accent)", borderRadius: 8, marginBottom: 8 }}>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 4 }}>Ngày {b.solarDay}/{b.solarMonth}</div>
-                                                <div style={{ fontSize: 14, color: "var(--text-dark)" }}>{b.title}</div>
-                                            </div>
-                                        ))
+                                    {birthdays.filter(b => b && daysGrid.some(d => d.lunarDay === b.lunarDay && d.lunarMonth === b.lunarMonth && d.isCurrentMonth)).length > 0 ? (
+                                        birthdays
+                                            .filter(b => b && daysGrid.some(d => d.lunarDay === b.lunarDay && d.lunarMonth === b.lunarMonth && d.isCurrentMonth))
+                                            .sort((a, b) => a.lunarDay - b.lunarDay)
+                                            .map((b, idx) => {
+                                                // Find the corresponding solar date from the grid
+                                                const matchingDay = daysGrid.find(d => d.lunarDay === b.lunarDay && d.lunarMonth === b.lunarMonth && d.isCurrentMonth);
+                                                return (
+                                                    <div key={idx} style={{ padding: "12px", background: "rgba(184, 134, 11, 0.07)", borderLeft: "3px solid var(--accent)", borderRadius: 8, marginBottom: 8 }}>
+                                                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 4 }}>
+                                                            Ngày {matchingDay?.day}/{matchingDay?.month + 1} ({b.lunarDay}/{b.lunarMonth} ÂL)
+                                                        </div>
+                                                        <div style={{ fontSize: 14, color: "var(--text-dark)" }}>{b.title}</div>
+                                                    </div>
+                                                );
+                                            })
                                     ) : <div className="small" style={{ color: "var(--text-light)" }}>Không có sinh nhật nào.</div>}
                                 </div>
                             </div>

@@ -111,7 +111,7 @@ export default function Media() {
                             onChange={(e) => setSelectedBranch(e.target.value)}
                             style={{ width: 200 }}
                         >
-                            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                            {branches.map(b => <option key={b._id} value={b._id}>{b.name.replace(/Chi nhánh/g, "Chi cành")}</option>)}
                         </select>
                     )}
                     {canUpload && (

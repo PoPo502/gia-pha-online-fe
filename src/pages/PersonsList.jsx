@@ -5,9 +5,12 @@ import { Link } from "react-router-dom";
 
 import { branchesService } from "../services/branches.service.js";
 import { useAuth } from "../store/auth.jsx";
+import { formatError } from "../lib/api.js";
 
 export default function PersonsList() {
   const { me } = useAuth();
+  const isGlobalAdmin = me?.role === "admin";
+  const isGlobalEditor = me?.role === "editor" || me?.role === "tree_admin";
   const [items, setItems] = useState([]);
   const [params, setParams] = useState({ page: 1, limit: 20, branchId: "", privacy: "" });
   const [meta, setMeta] = useState(null);
@@ -23,9 +26,25 @@ export default function PersonsList() {
     setErr("");
     setLoading(true);
     try {
-      const res = await personsService.list(p);
-      const list = res.data || res;
-      setItems(Array.isArray(list) ? list : (list.data || []));
+      let res;
+      if (isGlobalAdmin) {
+        // Admin xem danh sách các Admin/Chủ sở hữu của các chi cành
+        res = await branchesService.list(p);
+        const branchesList = res.data || res;
+        const adminItems = (Array.isArray(branchesList) ? branchesList : (branchesList.data || [])).map(b => ({
+          id: b.ownerId?.linkedPersonId || b._id, // Ưu tiên link tới Person ID nếu đã liên kết
+          fullName: `${b.ownerId?.fullName || "Chưa xác định"} (Admin - ${b.name})`,
+          privacy: "admin",
+          isLinked: !!b.ownerId?.linkedPersonId,
+          branchName: b.name
+        }));
+        setItems(adminItems);
+      } else {
+        // Thành viên xem danh sách người trong gia phả như bình thường
+        res = await personsService.list(p);
+        const list = res.data || res;
+        setItems(Array.isArray(list) ? list : (list.data || []));
+      }
       setMeta(res.meta || null);
     } catch (e) {
       setErr(formatError(e));
@@ -48,10 +67,6 @@ export default function PersonsList() {
     load();
 
   }, []);
-
-  // Role calculations
-  const isGlobalAdmin = me?.role === "admin";
-  const isGlobalEditor = me?.role === "editor" || me?.role === "tree_admin";
 
   // A person can add members if they are Admin, Editor globally, or if they manage ANY branch
   const isBranchAdmin = branches.some(b => {
@@ -142,14 +157,36 @@ export default function PersonsList() {
                     <tr key={id}>
                       <td style={{ fontWeight: 500 }}>{name}</td>
                       <td>
-                        {p.privacy ? (
+                        {p.privacy === "admin" ? (
+                          <span className="badge public">Branch Admin</span>
+                        ) : p.privacy ? (
                           <span className={`badge ${p.privacy.toLowerCase()}`}>{p.privacy}</span>
                         ) : "-"}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                          <Link className="btn" to={`/persons/${id}`} style={{ padding: "6px 12px", fontSize: 13 }}>Chi tiết</Link>
-                          <Link className="btn" to={`/persons/${id}/tree`} style={{ padding: "6px 12px", fontSize: 13 }}>Cây</Link>
+                          <Link
+                            className={`btn ${isGlobalAdmin && !p.isLinked ? "disabled" : ""}`}
+                            to={isGlobalAdmin && !p.isLinked ? "#" : `/persons/${id}`}
+                            onClick={(e) => {
+                              if (isGlobalAdmin && !p.isLinked) {
+                                e.preventDefault();
+                                alert("Admin này chưa liên kết với bất kỳ hồ sơ phả hệ nào.");
+                              }
+                            }}
+                            style={{ padding: "6px 12px", fontSize: 13, opacity: isGlobalAdmin && !p.isLinked ? 0.5 : 1 }}
+                          >Chi tiết</Link>
+                          <Link
+                            className={`btn ${isGlobalAdmin && !p.isLinked ? "disabled" : ""}`}
+                            to={isGlobalAdmin && !p.isLinked ? "#" : `/persons/${id}/tree`}
+                            onClick={(e) => {
+                              if (isGlobalAdmin && !p.isLinked) {
+                                e.preventDefault();
+                                alert("Admin này chưa liên kết với bất kỳ hồ sơ phả hệ nào.");
+                              }
+                            }}
+                            style={{ padding: "6px 12px", fontSize: 13, opacity: isGlobalAdmin && !p.isLinked ? 0.5 : 1 }}
+                          >Cây</Link>
                         </div>
                       </td>
                     </tr>
