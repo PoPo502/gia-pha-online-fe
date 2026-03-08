@@ -61,6 +61,8 @@ export default function ChangePasswordMandatory() {
                                     required
                                     value={form.oldPassword}
                                     onChange={e => setForm(s => ({ ...s, oldPassword: e.target.value }))}
+                                    onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                                    onInput={(e) => e.target.setCustomValidity("")}
                                     placeholder="VD: 150595"
                                 />
                             </div>
@@ -82,6 +84,14 @@ export default function ChangePasswordMandatory() {
                                     minLength={6}
                                     value={form.newPassword}
                                     onChange={e => setForm(s => ({ ...s, newPassword: e.target.value }))}
+                                    onInvalid={(e) => {
+                                        if (e.target.validity.valueMissing) {
+                                            e.target.setCustomValidity("Vui lòng điền vào trường này.");
+                                        } else if (e.target.validity.tooShort) {
+                                            e.target.setCustomValidity("Mật khẩu phải có ít nhất 6 ký tự.");
+                                        }
+                                    }}
+                                    onInput={(e) => e.target.setCustomValidity("")}
                                     placeholder="Tối thiểu 6 ký tự an toàn"
                                 />
                             </div>
@@ -98,6 +108,8 @@ export default function ChangePasswordMandatory() {
                                     required
                                     value={form.confirmPassword}
                                     onChange={e => setForm(s => ({ ...s, confirmPassword: e.target.value }))}
+                                    onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                                    onInput={(e) => e.target.setCustomValidity("")}
                                 />
                             </div>
                         </div>

@@ -14,26 +14,22 @@ export default function HomeUser() {
     const [members, setMembers] = useState([]);
     const [stats, setStats] = useState({ total: 0 });
     const [todayEvents, setTodayEvents] = useState([]);
-
-    // Post states
     const [posts, setPosts] = useState([]);
+    const [rootPerson, setRootPerson] = useState(null);
 
     const [showModal, setShowModal] = useState(false);
     const [newContent, setNewContent] = useState("");
-
     const [showFeelingModal, setShowFeelingModal] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedFeeling, setSelectedFeeling] = useState("");
-
-    // Bổ sung State dùng cho Bình luận
     const [openComments, setOpenComments] = useState({});
     const [commentsData, setCommentsData] = useState({});
     const [commentTexts, setCommentTexts] = useState({});
     const [editingComment, setEditingComment] = useState(null);
     const [editingPostId, setEditingPostId] = useState(null);
     const [editingPostContent, setEditingPostContent] = useState("");
-    const [editingPostImage, setEditingPostImage] = useState(null); // null = keep existing, "REMOVE" = remove, or new base64
-    const [editingPostExistingImage, setEditingPostExistingImage] = useState(null); // Original image URL
+    const [editingPostImage, setEditingPostImage] = useState(null);
+    const [editingPostExistingImage, setEditingPostExistingImage] = useState(null);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     const feelings = [
@@ -52,6 +48,14 @@ export default function HomeUser() {
                 const list = data.data || data;
                 setMembers(Array.isArray(list) ? list : (list.data || []));
                 if (data.meta) setStats(s => ({ ...s, total: data.meta.total }));
+
+                // Fetch root ancestor (generation 1)
+                const rootRes = await personsService.list({ generation: 1, limit: 1 });
+                const rootList = rootRes.data || rootRes || [];
+                const actualRoot = Array.isArray(rootList) ? rootList[0] : (rootRes.data ? rootRes.data[0] : null);
+                if (actualRoot) {
+                    setRootPerson(actualRoot);
+                }
 
                 const today = new Date().toISOString().split('T')[0];
                 const evRes = await eventsService.list({ dateFrom: today, dateTo: today });
@@ -246,7 +250,7 @@ export default function HomeUser() {
                                     <circle cx="30" cy="40" r="6" fill="var(--accent)" />
                                     <circle cx="70" cy="40" r="6" fill="var(--accent)" />
                                 </svg>
-                                <Link to={me?.id ? `/persons/${me.id}/tree` : "/search/persons"} className="btn small primary" style={{ borderRadius: 10, padding: "8px 20px", fontWeight: 700 }}>Xem chi cành</Link>
+                                <Link to={me?.linkedPersonId ? `/persons/${me.linkedPersonId}/tree` : "/search/persons"} className="btn small primary" style={{ borderRadius: 10, padding: "8px 20px", fontWeight: 700 }}>Xem chi cành</Link>
                             </div>
                             <div className="small" style={{ marginTop: 14, color: "var(--muted)", textAlign: "center", fontWeight: 500 }}>Sơ đồ huyết thống trực hệ của gia đình bạn.</div>
                         </div>
@@ -266,7 +270,7 @@ export default function HomeUser() {
                                     <circle cx="30" cy="35" r="5" fill="var(--accent)" />
                                     <circle cx="90" cy="35" r="5" fill="var(--accent)" />
                                 </svg>
-                                <Link to="/persons" className="btn small outline" style={{ borderRadius: 10, color: "var(--red)", borderColor: "var(--red)", fontWeight: 700 }}>Toàn cảnh gia tộc</Link>
+                                <Link to={rootPerson ? `/persons/${rootPerson._id || rootPerson.id}/tree` : "/persons"} className="btn small outline" style={{ borderRadius: 10, color: "var(--red)", borderColor: "var(--red)", fontWeight: 700 }}>Toàn cảnh gia tộc</Link>
                             </div>
                             <div className="small" style={{ marginTop: 14, color: "var(--muted)", textAlign: "center", fontWeight: 500 }}>Toàn bộ phả đồ của đại gia đình.</div>
                         </div>

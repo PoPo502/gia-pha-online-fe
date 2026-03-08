@@ -151,16 +151,22 @@ export default function Profile() {
 
                             <div className="form-group">
                                 <label className="label">Mật khẩu hiện tại</label>
-                                <input required type="password" name="currentPassword" value={formData.currentPassword} className="input" onChange={handleChange} />
+                                <input required type="password" name="currentPassword" value={formData.currentPassword} className="input" onChange={handleChange}
+                                    onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                                    onInput={(e) => e.target.setCustomValidity("")} />
                             </div>
                             <div className="row" style={{ gap: 16 }}>
                                 <div className="form-group" style={{ flex: 1 }}>
                                     <label className="label">Mật khẩu mới</label>
-                                    <input required type="password" name="newPassword" value={formData.newPassword} className="input" onChange={handleChange} />
+                                    <input required type="password" name="newPassword" value={formData.newPassword} className="input" onChange={handleChange}
+                                        onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                                        onInput={(e) => e.target.setCustomValidity("")} />
                                 </div>
                                 <div className="form-group" style={{ flex: 1 }}>
                                     <label className="label">Xác nhận mật khẩu</label>
-                                    <input required type="password" name="confirmPassword" value={formData.confirmPassword} className="input" onChange={handleChange} />
+                                    <input required type="password" name="confirmPassword" value={formData.confirmPassword} className="input" onChange={handleChange}
+                                        onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                                        onInput={(e) => e.target.setCustomValidity("")} />
                                 </div>
                             </div>
                             <button type="submit" className="btn outline" disabled={passLoading} style={{ alignSelf: "flex-start", marginTop: 8 }}>

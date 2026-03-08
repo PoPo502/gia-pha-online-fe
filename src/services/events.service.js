@@ -25,4 +25,12 @@ export const eventsService = {
     const res = await api.delete(`/events/${id}`);
     return unwrap(res);
   },
+  async register(id) {
+    const res = await api.post(`/events/${id}/register`);
+    return unwrap(res);
+  },
+  async updateParticipantStatus(id, userId, status) {
+    const res = await api.put(`/events/${id}/participants/${userId}/status`, { status });
+    return unwrap(res);
+  }
 };

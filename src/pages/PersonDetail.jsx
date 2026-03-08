@@ -42,7 +42,7 @@ export default function PersonDetail() {
         name: data.fullName,
         dobRaw: formatYMD(data.dateOfBirth),
         dodRaw: formatYMD(data.dateOfDeath),
-        isAlive: !data.dateOfDeath
+        isAlive: data.isAlive
       };
       setPerson(normalized);
       setEdit(normalized);
@@ -103,7 +103,8 @@ export default function PersonDetail() {
         ...edit,
         fullName: edit.name,
         dateOfBirth: edit.dobRaw ? new Date(edit.dobRaw).toISOString() : null,
-        dateOfDeath: !edit.isAlive && edit.dodRaw ? new Date(edit.dodRaw).toISOString() : null
+        dateOfDeath: !edit.isAlive && edit.dodRaw ? new Date(edit.dodRaw).toISOString() : null,
+        isAlive: edit.isAlive
       };
       const data = await personsService.update(id, payload);
       const formatYMD = (dateString) => dateString ? new Date(dateString).toISOString().split('T')[0] : "";
@@ -112,7 +113,7 @@ export default function PersonDetail() {
         name: data.fullName,
         dobRaw: formatYMD(data.dateOfBirth),
         dodRaw: formatYMD(data.dateOfDeath),
-        isAlive: !data.dateOfDeath
+        isAlive: data.isAlive
       };
       setPerson(normalized);
       setEdit(normalized);

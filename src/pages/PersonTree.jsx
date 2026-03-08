@@ -108,6 +108,13 @@ export default function PersonTree() {
   // Context Menu State
   const [ctxMenu, setCtxMenu] = useState(null);
 
+  // Zoom State
+  const [zoom, setZoom] = useState(1.0);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2.0));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const handleZoomReset = () => setZoom(1.0);
+
   // Add Person Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState("root"); // root | relative
@@ -232,6 +239,9 @@ export default function PersonTree() {
   const exportImage = async () => {
     if (!treeRef.current) return;
     setExporting(true);
+    const originalZoom = zoom;
+    setZoom(1.0); // Reset zoom for high quality export
+    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for render
     try {
       const canvas = await html2canvas(treeRef.current, { scale: 2, backgroundColor: "#ffffff" });
       const link = document.createElement("a");
@@ -241,6 +251,7 @@ export default function PersonTree() {
     } catch (error) {
       alert("Lỗi khi xuất ảnh: " + formatError(error));
     } finally {
+      setZoom(originalZoom);
       setExporting(false);
     }
   };
@@ -248,6 +259,9 @@ export default function PersonTree() {
   const exportPDF = async () => {
     if (!treeRef.current) return;
     setExporting(true);
+    const originalZoom = zoom;
+    setZoom(1.0); // Reset zoom for high quality export
+    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for render
     try {
       const canvas = await html2canvas(treeRef.current, { scale: 2, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
@@ -257,6 +271,7 @@ export default function PersonTree() {
     } catch (error) {
       alert("Lỗi khi xuất PDF: " + error.message);
     } finally {
+      setZoom(originalZoom);
       setExporting(false);
     }
   };
@@ -300,32 +315,78 @@ export default function PersonTree() {
 
           <style>{`
             .export-menu-container:hover .export-dropdown { display: block !important; }
+            .zoom-controls {
+              position: absolute;
+              bottom: 24px;
+              right: 24px;
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              z-index: 100;
+              background: var(--surface-solid);
+              padding: 8px;
+              border-radius: 12px;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+              border: 1px solid var(--border);
+            }
+            .zoom-btn {
+              width: 36px;
+              height: 36px;
+              border-radius: 8px;
+              border: 1px solid var(--border);
+              background: var(--surface);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              font-weight: bold;
+              transition: all 0.2s;
+              color: var(--text-dark);
+            }
+            .zoom-btn:hover {
+              background: var(--primary-light);
+              border-color: var(--primary);
+              color: var(--primary);
+            }
           `}</style>
 
           <div className="filters">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span className="small" style={{ fontWeight: 500 }}>Bậc sâu hiển thị:</span>
-              <input className="input" style={{ width: 80 }} type="number" min="1" max="10"
-                value={params.depth} onChange={(e) => setParams(s => ({ ...s, depth: Number(e.target.value) }))} />
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span className="small" style={{ fontWeight: 500 }}>Bậc sâu hiển thị:</span>
+                <input className="input" style={{ width: 80 }} type="number" min="1" max="10"
+                  value={params.depth} onChange={(e) => setParams(s => ({ ...s, depth: Number(e.target.value) }))} />
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span className="small" style={{ fontWeight: 500 }}>Vợ/chồng:</span>
+                <select className="select" style={{ width: 120 }} value={String(params.includeSpouses)} onChange={(e) => setParams(s => ({ ...s, includeSpouses: e.target.value === "true" }))}>
+                  <option value="true">Hiển thị</option>
+                  <option value="false">Ẩn</option>
+                </select>
+              </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span className="small" style={{ fontWeight: 500 }}>Vợ/chồng:</span>
-              <select className="select" style={{ width: 120 }} value={String(params.includeSpouses)} onChange={(e) => setParams(s => ({ ...s, includeSpouses: e.target.value === "true" }))}>
-                <option value="true">Hiển thị</option>
-                <option value="false">Ẩn</option>
-              </select>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div className="zoom-indicator small" style={{ fontWeight: 600, color: "var(--muted)" }}>
+                Phóng đại: {Math.round(zoom * 100)}%
+              </div>
+              <button className="btn primary" onClick={() => load(params)} disabled={loading}>
+                {loading ? "Đang tải..." : "Làm mới dữ liệu"}
+              </button>
             </div>
-
-            <button className="btn primary" onClick={() => load(params)} disabled={loading}>
-              {loading ? "Đang tải..." : "Làm mới dữ liệu"}
-            </button>
           </div>
 
           {err && <div style={{ color: "var(--danger)", marginTop: 16 }}>{err}</div>}
 
-          <div style={{ position: "relative", marginTop: 24, background: "var(--surface-solid)", padding: 24, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", minHeight: 400, overflow: "hidden" }}>
+          <div style={{ position: "relative", marginTop: 24, background: "var(--surface-solid)", padding: 24, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", minHeight: 400, overflow: "auto" }}>
             {loading && !tree && <div className="small" style={{ textAlign: "center", padding: 40 }}>Đang dựng cây gia phả...</div>}
+
+            <div className="zoom-controls">
+              <button className="zoom-btn" onClick={handleZoomIn} title="Phóng to">+</button>
+              <button className="zoom-btn" onClick={handleZoomReset} title="Mặc định">1:1</button>
+              <button className="zoom-btn" onClick={handleZoomOut} title="Thu nhỏ">-</button>
+            </div>
 
             {tree && tree.siblings && tree.siblings.length > 0 && (
               <div style={{ padding: "12px 24px", background: "rgba(246, 145, 19, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
@@ -362,10 +423,18 @@ export default function PersonTree() {
               <div
                 className="family-tree-container"
                 ref={treeRef}
-                style={{ padding: 20, minWidth: "100%", display: "inline-block", textAlign: "center" }}
+                style={{
+                  padding: 40,
+                  minWidth: "100%",
+                  display: "inline-block",
+                  textAlign: "center"
+                }}
               >
-                {/* CHÍNH LÀ THẺ DIV NÀY BỊ THIẾU NÈ: */}
-                <div className="family-tree">
+                <div className="family-tree" style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
+                  transition: "transform 0.2s ease-out"
+                }}>
                   <ul>
                     <Node node={tree} onNodeClick={handleNodeClick} />
                   </ul>

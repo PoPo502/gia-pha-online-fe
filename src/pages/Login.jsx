@@ -48,6 +48,8 @@ export default function Login() {
                 placeholder="VD: NG05001"
                 value={form.email}
                 onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+                onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                onInput={(e) => e.target.setCustomValidity("")}
                 required
               />
             </div>
@@ -61,6 +63,8 @@ export default function Login() {
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                onInvalid={(e) => e.target.setCustomValidity("Vui lòng điền vào trường này.")}
+                onInput={(e) => e.target.setCustomValidity("")}
                 required
               />
             </div>
@@ -79,22 +83,6 @@ export default function Login() {
             )}
           </form>
 
-          <div style={{ display: "flex", alignItems: "center", margin: "40px 0 32px", color: "var(--text-light)" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-            <div style={{ margin: "0 16px", fontSize: 13, fontWeight: 600, letterSpacing: "1px", color: "var(--muted)" }}>HOẶC TIẾP TỤC VỚI</div>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }}></div>
-          </div>
-
-          <div className="stack" style={{ gap: 12, marginBottom: 8 }}>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/google`} className="btn outline" style={{ width: "100%", padding: 14, justifyContent: "center", gap: 10, textDecoration: "none", borderRadius: 12 }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="18" height="18" />
-              Google
-            </a>
-            <a href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/auth/facebook`} className="btn outline" style={{ width: "100%", padding: 14, justifyContent: "center", gap: 10, textDecoration: "none", borderRadius: 12 }}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg" alt="Facebook" width="18" height="18" />
-              Facebook
-            </a>
-          </div>
 
           <div className="small" style={{ textAlign: "center", marginTop: 40, padding: "24px 0 0", borderTop: "1px solid var(--border)", color: "var(--text-light)" }}>
             Chưa có tài khoản?{" "}

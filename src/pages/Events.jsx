@@ -6,6 +6,7 @@ import { eventsService } from "../services/events.service.js";
 import { branchesService } from "../services/branches.service.js";
 import { formatError } from "../lib/api.js";
 import CalendarModal from "../components/CalendarModal.jsx";
+import StreamingPlayer from "../components/StreamingPlayer.jsx";
 
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -48,8 +49,9 @@ export default function Events() {
                 const data = await eventsService.list({ status: "approved" });
                 setEvents(data.data || data || []);
             }
-            // Real streams would go here
-            setStreams([]);
+            // Fetch active streams
+            const streamsRes = await eventsService.list({ isLive: true, status: "approved" });
+            setStreams(streamsRes.data || streamsRes || []);
         } catch (e) {
             // Silently log or handle if needed, but fetchEvents is called on load
             console.error(formatError(e));
@@ -63,7 +65,11 @@ export default function Events() {
     }, []);
 
     const [branches, setBranches] = useState([]);
-    const [formData, setFormData] = useState({ branchId: "", title: "", type: "other", eventDate: null, location: "", description: "", privacy: "internal", personIdsText: "" });
+    const [formData, setFormData] = useState({
+        branchId: "", title: "", type: "other", eventDate: null,
+        location: "", description: "", privacy: "internal",
+        personIdsText: "", isLive: false, streamUrl: "", streamType: "youtube"
+    });
 
     // States cho Địa lý (Tỉnh/Huyện/Xã)
     const [provinces, setProvinces] = useState([]);
@@ -139,6 +145,27 @@ export default function Events() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const handleRegister = async (eventId) => {
+        try {
+            await eventsService.register(eventId);
+            alert("Đã gửi yêu cầu đăng ký tham gia! Vui lòng chờ Ban quản trị duyệt.");
+            fetchEvents();
+        } catch (error) {
+            console.error("Lỗi đăng ký:", error);
+            alert(error.friendlyMessage || "Có lỗi xảy ra khi đăng ký.");
+        }
+    };
+
+    const handleUpdateParticipantStatus = async (eventId, userId, status) => {
+        try {
+            await eventsService.updateParticipantStatus(eventId, userId, status);
+            fetchEvents();
+        } catch (error) {
+            console.error("Lỗi duyệt yêu cầu tham gia:", error);
+            alert(error.friendlyMessage || "Có lỗi xảy ra khi tiến hành duyệt.");
+        }
+    };
+
     const handleApproveEvent = async (eventId) => {
         setApprovingId(eventId);
         try {
@@ -167,6 +194,48 @@ export default function Events() {
         }
     };
 
+    const handleToggleLive = async (eventId, currentStatus, passedStreamUrl) => {
+        // Fallback: Tìm lại trong state nếu passedStreamUrl bị thiếu hoặc để đảm bảo lấy bản mới nhất
+        const currentEvent = events.find(e => String(e._id || e.id) === String(eventId));
+        const finalUrl = passedStreamUrl || currentEvent?.streamUrl;
+
+        console.log("Toggle Live Attempt:", {
+            eventId,
+            currentStatus,
+            passedStreamUrl,
+            stateUrl: currentEvent?.streamUrl,
+            finalUrl
+        });
+
+        if (!currentStatus && (!finalUrl || finalUrl.trim() === "")) {
+            console.error("BLOCK: URL is empty", { currentEvent });
+            alert("Vui lòng nhập Link Livestream trong mục 'Chỉnh sửa' trước khi bắt đầu phát trực tiếp!");
+            return;
+        }
+        try {
+            await eventsService.update(eventId, { isLive: !currentStatus });
+
+            // Cập nhật ngay lập tức state cục bộ của danh sách sự kiện
+            setEvents(prev => prev.map(e =>
+                (e._id || e.id) === eventId ? { ...e, isLive: !currentStatus } : e
+            ));
+
+            // Đợi một chút để DB ổn định rồi tải lại danh sách luồng phát
+            setTimeout(async () => {
+                const streamsRes = await eventsService.list({ isLive: true, status: "approved" });
+                setStreams(streamsRes.data || streamsRes || []);
+            }, 500);
+
+            if (!currentStatus) {
+                alert("Đã bắt đầu phát trực tiếp! Mọi người có thể xem tại tab 'Phát trực tiếp'.");
+            } else {
+                alert("Đã dừng phát trực tiếp.");
+            }
+        } catch (e) {
+            alert(formatError(e));
+        }
+    };
+
     const handleDeleteEvent = async (eventId) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) return;
         try {
@@ -185,25 +254,45 @@ export default function Events() {
                 title: formData.title,
                 type: formData.type || "other",
                 eventDate: formData.eventDate ? new Date(formData.eventDate).toISOString() : null,
-                location: formData.location || "",
+                location: formData.location || "", // Đã thêm lại trường location bị thiếu
                 description: formData.description || "",
                 privacy: formData.privacy || "internal",
                 personIds: (formData.personIdsText || "").split(",").map((s) => s.trim()).filter(Boolean),
+                isLive: formData.isLive,
+                streamUrl: formData.streamUrl,
+                streamType: formData.streamType
             };
+
+            console.log("FRONTEND: Payload to send:", payload);
 
             if (editEventId) {
                 // Chế độ Sửa
-                await eventsService.update(editEventId, payload);
+                const updated = await eventsService.update(editEventId, payload);
+                console.log("FRONTEND: Response from server:", updated);
+
+                // Cập nhật ngay lập tức state cục bộ tránh stale data, dùng String() để so sánh chính xác
+                setEvents(prev => prev.map(e => {
+                    const eId = String(e._id || e.id || "");
+                    const uId = String(updated._id || updated.id || "");
+                    return eId === uId ? updated : e;
+                }));
                 alert("Cập nhật sự kiện thành công!");
             } else {
                 // Chế độ Tạo mới
-                await eventsService.create(payload);
+                const created = await eventsService.create(payload);
+                setEvents(prev => [created, ...prev]);
                 alert(isAdmin ? "Đã tạo sự kiện thành công!" : "Đã gửi yêu cầu tạo sự kiện thành công. Vui lòng chờ Ban quản trị duyệt!");
             }
 
             setShowAddModal(false);
             setEditEventId(null);
-            setFormData({ branchId: branches[0]?._id || "", title: "", type: "other", eventDate: null, location: "", description: "", privacy: "internal", personIdsText: "" });
+            // Không gọi fetch ngay lập tức để tránh race condition, 
+            // state đã được cập nhật từ kết quả 'updated' phía trên.
+            setFormData({
+                branchId: branches[0]?._id || "", title: "", type: "other",
+                eventDate: null, location: "", description: "", privacy: "internal",
+                personIdsText: "", isLive: false, streamUrl: "", streamType: "youtube"
+            });
             setLocState({ provCode: "", provName: "", distCode: "", distName: "", wardCode: "", wardName: "", detail: "" });
             setDistricts([]);
             setWards([]);
@@ -228,7 +317,10 @@ export default function Events() {
             location: ev.location || "",
             description: ev.description || "",
             privacy: ev.privacy || "internal",
-            personIdsText: (ev.personIds || []).map(p => typeof p === 'object' ? p._id : p).join(", ")
+            personIdsText: (ev.personIds || []).map(p => typeof p === 'object' ? p._id : p).join(", "),
+            isLive: ev.isLive || false,
+            streamUrl: ev.streamUrl || "",
+            streamType: ev.streamType || "youtube"
         });
 
         // Gán toàn bộ địa chỉ cũ vào ô detail (để đảm bảo không mất dữ liệu cũ của user)
@@ -318,19 +410,53 @@ export default function Events() {
                                             <p className="small" style={{ color: "var(--text-light)" }}>{ev.description}</p>
                                         </div>
                                         <div className="row" style={{ marginTop: 16, gap: 12 }}>
-                                            {!isAdmin && (
-                                                !registeredEvents[ev._id || ev.id] ? (
-                                                    <button className="btn primary" onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: true }))}>
-                                                        Đăng ký tham gia
-                                                    </button>
-                                                ) : (
-                                                    <button className="btn" style={{ background: "rgba(184, 134, 11, 0.1)", color: "var(--accent)", fontWeight: "bold" }} onClick={() => setRegisteredEvents(prev => ({ ...prev, [ev._id || ev.id]: false }))}>
-                                                        ✓ Đã đăng ký
-                                                    </button>
-                                                )
-                                            )}
+                                            {!isAdmin && (() => {
+                                                const myReg = ev.participants?.find(p => p.userId === (me?._id || me?.id) || p.userId?._id === (me?._id || me?.id));
+                                                if (!myReg || myReg.status === "rejected") {
+                                                    return (
+                                                        <button className="btn primary" onClick={() => handleRegister(ev._id || ev.id)}>
+                                                            Đăng ký tham gia
+                                                        </button>
+                                                    );
+                                                } else if (myReg.status === "pending") {
+                                                    return (
+                                                        <button className="btn" style={{ background: "rgba(184, 134, 11, 0.1)", color: "var(--accent)", fontWeight: "bold" }} disabled>
+                                                            ⏳ Đang chờ duyệt
+                                                        </button>
+                                                    );
+                                                } else {
+                                                    if (ev.isLive) {
+                                                        return (
+                                                            <button className="btn" style={{ background: "var(--danger)", color: "#fff", fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setActiveTab("live")}>
+                                                                <Radio size={16} /> Xem Livestream
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <button className="btn" style={{ background: "rgba(34, 197, 94, 0.1)", color: "var(--success)", fontWeight: "bold" }} disabled>
+                                                            ✓ Đã đăng ký
+                                                        </button>
+                                                    );
+                                                }
+                                            })()}
                                             {(isAdmin || (ev.createdBy && (ev.createdBy._id || ev.createdBy) === (me?._id || me?.id))) && (
                                                 <>
+                                                    {isAdmin && (
+                                                        <button
+                                                            className="btn"
+                                                            style={{
+                                                                background: ev.isLive ? "var(--danger)" : "var(--primary)",
+                                                                color: "#fff",
+                                                                fontWeight: 700,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: 6
+                                                            }}
+                                                            onClick={() => handleToggleLive(ev._id || ev.id, ev.isLive, ev.streamUrl)}
+                                                        >
+                                                            <Radio size={16} /> {ev.isLive ? "Dừng Phát" : "Phát Trực Tiếp"}
+                                                        </button>
+                                                    )}
                                                     <button className="btn outline" onClick={() => openEditModal(ev)}>Chỉnh sửa</button>
                                                     <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
                                                 </>
@@ -348,13 +474,8 @@ export default function Events() {
                         {/* Tab: Hàng chờ duyệt (chỉ admin) */}
                         {activeTab === "pending" && isAdmin && (
                             <div className="stack" style={{ gap: 16 }}>
-                                {pendingEvents.length === 0 ? (
-                                    <div className="card" style={{ textAlign: "center", padding: 60, color: "var(--text-light)" }}>
-                                        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-                                        <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Sạch hàng chờ!</div>
-                                        <div className="small">Không có sự kiện nào đang chờ duyệt.</div>
-                                    </div>
-                                ) : pendingEvents.map(ev => (
+                                {pendingEvents.length > 0 && <div className="title-md" style={{ fontSize: 18, marginBottom: 8 }}>Sự kiện chờ duyệt</div>}
+                                {pendingEvents.map(ev => (
                                     <div key={ev._id || ev.id} className="card" style={{ borderLeft: "4px solid var(--primary)" }}>
                                         <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
                                             <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dark)" }}>{ev.title}</div>
@@ -387,34 +508,70 @@ export default function Events() {
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* Danh sách yêu cầu ĐĂNG KÝ THAM GIA */}
+                                {events.some(ev => ev.participants?.some(p => p.status === "pending")) && (
+                                    <div style={{ marginTop: 24 }}>
+                                        <div className="title-md" style={{ fontSize: 18, marginBottom: 16 }}>Yêu cầu tham gia sự kiện</div>
+                                        {events.map(ev => {
+                                            const pendingReqs = ev.participants?.filter(p => p.status === "pending");
+                                            if (!pendingReqs || pendingReqs.length === 0) return null;
+                                            return (
+                                                <div key={"req-" + (ev._id || ev.id)} className="card" style={{ marginBottom: 16, borderLeft: "4px solid var(--accent)" }}>
+                                                    <div style={{ fontWeight: 600, color: "var(--primary)", marginBottom: 16 }}>{ev.title}</div>
+                                                    <div className="stack" style={{ gap: 8 }}>
+                                                        {pendingReqs.map(req => (
+                                                            <div key={req.userId} className="row" style={{ justifyContent: "space-between", background: "var(--surface-hover)", padding: "12px 16px", borderRadius: 8 }}>
+                                                                <div className="stack" style={{ gap: 4 }}>
+                                                                    <div style={{ fontWeight: 600 }}>Mã TV: {req.userId}</div>
+                                                                    <div className="small" style={{ color: "var(--text-light)" }}>Ngày xin: {new Date(req.registeredAt).toLocaleString('vi-VN')}</div>
+                                                                </div>
+                                                                <div className="row" style={{ gap: 8 }}>
+                                                                    <button className="btn primary small" onClick={() => handleUpdateParticipantStatus(ev._id || ev.id, req.userId, "approved")}>Duyệt</button>
+                                                                    <button className="btn outline small" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleUpdateParticipantStatus(ev._id || ev.id, req.userId, "rejected")}>Từ chối</button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+
+                                {pendingEvents.length === 0 && !events.some(ev => ev.participants?.some(p => p.status === "pending")) && (
+                                    <div className="card" style={{ textAlign: "center", padding: 60, color: "var(--text-light)" }}>
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                                        <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Sạch hàng chờ!</div>
+                                        <div className="small">Không có sự kiện hay đăng ký tham gia nào đang chờ duyệt.</div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {loading && <div className="small" style={{ textAlign: "center", padding: 40 }}>Đang tải sự kiện...</div>}
 
                         {activeTab === "live" && (
-                            <div className="stack" style={{ gap: 16 }}>
+                            <div className="stack" style={{ gap: 24 }}>
                                 {streams.map(st => (
-                                    <div key={st.id} className="card">
-                                        <div style={{ aspectRatio: "16/9", background: "var(--surface-hover)", borderRadius: "var(--radius-lg)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                                            {st.status === "live" ? (
-                                                <div style={{ position: "absolute", top: 12, left: 12, background: "var(--danger)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, animation: "pulse 2s infinite" }}>
-                                                    <Radio size={14} /> TRỰC TIẾP
-                                                </div>
-                                            ) : (
-                                                <div style={{ position: "absolute", top: 12, left: 12, background: "var(--text-light)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
-                                                    ĐÃ KẾT THÚC
-                                                </div>
-                                            )}
-
-                                            {st.status === "live" && <button className="avatar" style={{ width: 64, height: 64, background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)", color: "#fff", border: "2px solid #fff" }}><Video size={32} /></button>}
-                                            {st.status === "ended" && <div className="small" style={{ color: "var(--text-light)" }}>Video xem lại đang được xử lý</div>}
-                                        </div>
-
-                                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>{st.title}</div>
-                                        <div className="row" style={{ justifyContent: "space-between" }}>
-                                            <div className="small" style={{ color: "var(--text-light)" }}>Đăng bởi: {st.user}</div>
-                                            <div className="row" style={{ gap: 8, color: "var(--text-light)" }}><Users size={16} /> <span>{st.viewers} người xem</span></div>
+                                    <div key={st._id || st.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                        <StreamingPlayer
+                                            url={st.streamUrl}
+                                            type={st.streamType}
+                                            title={st.title}
+                                        />
+                                        <div style={{ padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)' }}>
+                                            <div className="small" style={{ color: "var(--text-light)" }}>
+                                                Chi cành: <strong>{st.branchId?.name || "Chung"}</strong>
+                                            </div>
+                                            <div className="row" style={{ gap: 12 }}>
+                                                <button className="btn outline small" onClick={() => setActiveTab("events")}>Xem lịch sự kiện</button>
+                                                {isAdmin && (
+                                                    <button className="btn outline small" style={{ color: 'var(--danger)' }} onClick={() => handleToggleLive(st._id || st.id, true, st.streamUrl)}>
+                                                        Dừng luồng
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -422,7 +579,7 @@ export default function Events() {
                                     <div className="card" style={{ textAlign: "center", padding: 60, color: "var(--text-light)" }}>
                                         <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
                                         <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Chưa có luồng trực tiếp nào</div>
-                                        <div className="small">Khi có các sự kiện được phát trực tiếp, chúng sẽ xuất hiện tại đây.</div>
+                                        <div className="small">Khi có các sự kiện được bật tính năng "Phát trực tiếp", chúng sẽ xuất hiện tại đây.</div>
                                     </div>
                                 )}
                             </div>
@@ -526,6 +683,44 @@ export default function Events() {
                                         locale="vi"
                                         placeholderText="Chọn ngày giờ..."
                                     />
+                                </div>
+                            </div>
+
+                            <div className="card" style={{ background: "rgba(184, 134, 11, 0.05)", border: "1px dashed var(--accent)", padding: 16 }}>
+                                <div style={{ fontWeight: 700, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span>Cấu hình Livestream</span>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.isLive}
+                                            onChange={(e) => setFormData(s => ({ ...s, isLive: e.target.checked }))}
+                                        />
+                                        Đang phát trực tiếp
+                                    </label>
+                                </div>
+                                <div className="row" style={{ gap: 12 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label className="small" style={{ display: "block", marginBottom: 6 }}>Nguồn phát</label>
+                                        <select
+                                            className="select"
+                                            value={formData.streamType}
+                                            onChange={(e) => setFormData(s => ({ ...s, streamType: e.target.value }))}
+                                        >
+                                            <option value="youtube">YouTube</option>
+                                            <option value="facebook">Facebook</option>
+                                            <option value="hls">HLS (m3u8)</option>
+                                            <option value="other">Khác</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ flex: 2 }}>
+                                        <label className="small" style={{ display: "block", marginBottom: 6 }}>Link Livestream (URL)</label>
+                                        <input
+                                            className="input"
+                                            placeholder="https://youtube.com/live/..."
+                                            value={formData.streamUrl}
+                                            onChange={(e) => setFormData(s => ({ ...s, streamUrl: e.target.value }))}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
