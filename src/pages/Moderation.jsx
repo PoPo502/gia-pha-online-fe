@@ -49,7 +49,6 @@ export default function Moderation() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 860 }}>
                 <div className="title-md" style={{ marginBottom: 8 }}>Trạm kiểm duyệt Nội dung</div>
                 <div className="small" style={{ color: "var(--text-light)", marginBottom: 24 }}>

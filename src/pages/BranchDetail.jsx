@@ -5,6 +5,7 @@ import { branchesService } from "../services/branches.service.js";
 import { usersService } from "../services/users.service.js";
 import { useDebounce } from "../hooks/useDebounce.js";
 import { GitBranch, Users, Trash2, Plus, ArrowLeft, Shield, Search, X } from "lucide-react";
+import { formatError, translateRole } from "../lib/api.js";
 
 import { useAuth } from "../store/auth.jsx";
 
@@ -83,7 +84,7 @@ export default function BranchDetail() {
         const roleToAssign = selectedRoles[userId] || "viewer";
         try {
             await branchesService.addMember(id, { userId, roleInBranch: roleToAssign });
-            alert(`Đã thêm thành viên với vai trò ${roleToAssign.toUpperCase()} thành công!`);
+            alert(`Đã thêm thành viên với vai trò ${translateRole(roleToAssign).toUpperCase()} thành công!`);
             setShowAddModal(false);
             setSearchTerm("");
             setFoundUsers([]);
@@ -96,7 +97,7 @@ export default function BranchDetail() {
         }
     };
 
-    if (loading) return <><Topbar /><div className="container">Đang tải...</div></>;
+    if (loading) return <div className="container">Đang tải...</div>;
 
     // Role checks
     const isGlobalAdmin = me?.role === "admin";
@@ -111,7 +112,6 @@ export default function BranchDetail() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 1000 }}>
                 <button onClick={() => nav(-1)} className="btn outline" style={{ marginBottom: 20 }}>
                     <ArrowLeft size={16} style={{ marginRight: 8 }} /> Quay lại Admin
@@ -168,7 +168,7 @@ export default function BranchDetail() {
                                                     </td>
                                                     <td>
                                                         <span className="badge internal" style={{ textTransform: "uppercase" }}>
-                                                            {m.roleInBranch || "VIEWER"}
+                                                            {translateRole(m.roleInBranch)}
                                                         </span>
                                                     </td>
                                                     <td>
@@ -252,9 +252,9 @@ export default function BranchDetail() {
                                                         value={selectedRoles[u._id || u.id] || "viewer"}
                                                         onChange={e => setSelectedRoles(prev => ({ ...prev, [u._id || u.id]: e.target.value }))}
                                                     >
-                                                        <option value="viewer">Viewer</option>
-                                                        <option value="editor">Editor</option>
-                                                        <option value="owner">Owner</option>
+                                                        <option value="viewer">Người xem</option>
+                                                        <option value="editor">Trưởng cành</option>
+                                                        <option value="owner">Chủ sở hữu</option>
                                                     </select>
                                                     <button
                                                         className="btn primary small"

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { useAuth } from "../store/auth.jsx";
-import { Calendar, Video, Plus, Users, Clock, MapPin, Radio } from "lucide-react";
+import { Calendar, Video, Plus, Users, Clock, MapPin, Radio, GitBranch } from "lucide-react";
 import { eventsService } from "../services/events.service.js";
 import { branchesService } from "../services/branches.service.js";
 import { formatError } from "../lib/api.js";
@@ -17,7 +18,10 @@ export default function Events() {
     const { me } = useAuth();
     const isAdmin = ["admin", "editor", "tree_admin", "super_admin"].includes(String(me?.role || "").toLowerCase());
 
-    const [activeTab, setActiveTab] = useState("events"); // events | live | pending
+    const [searchParams] = useSearchParams();
+    const initialTab = searchParams.get("tab") || "events";
+
+    const [activeTab, setActiveTab] = useState(initialTab); // events | live | pending
     const [showAddModal, setShowAddModal] = useState(false);
     const [editEventId, setEditEventId] = useState(null);
     const [registeredEvents, setRegisteredEvents] = useState({});
@@ -27,6 +31,10 @@ export default function Events() {
     const [loading, setLoading] = useState(true);
     const [approvingId, setApprovingId] = useState(null);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedEventDetail, setSelectedEventDetail] = useState(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
 
     // Phân loại sự kiện theo trạng thái
     const pendingEvents = events.filter(e => !e.status || e.status === "pending");
@@ -199,16 +207,7 @@ export default function Events() {
         const currentEvent = events.find(e => String(e._id || e.id) === String(eventId));
         const finalUrl = passedStreamUrl || currentEvent?.streamUrl;
 
-        console.log("Toggle Live Attempt:", {
-            eventId,
-            currentStatus,
-            passedStreamUrl,
-            stateUrl: currentEvent?.streamUrl,
-            finalUrl
-        });
-
         if (!currentStatus && (!finalUrl || finalUrl.trim() === "")) {
-            console.error("BLOCK: URL is empty", { currentEvent });
             alert("Vui lòng nhập Link Livestream trong mục 'Chỉnh sửa' trước khi bắt đầu phát trực tiếp!");
             return;
         }
@@ -221,13 +220,12 @@ export default function Events() {
             ));
 
             // Đợi một chút để DB ổn định rồi tải lại danh sách luồng phát
-            setTimeout(async () => {
-                const streamsRes = await eventsService.list({ isLive: true, status: "approved" });
-                setStreams(streamsRes.data || streamsRes || []);
-            }, 500);
+            const streamsRes = await eventsService.list({ isLive: true, status: "approved" });
+            setStreams(streamsRes.data || streamsRes || []);
 
             if (!currentStatus) {
                 alert("Đã bắt đầu phát trực tiếp! Mọi người có thể xem tại tab 'Phát trực tiếp'.");
+                setActiveTab("live"); // Tự động chuyển tab sau khi bật livestream
             } else {
                 alert("Đã dừng phát trực tiếp.");
             }
@@ -331,9 +329,22 @@ export default function Events() {
         setShowAddModal(true);
     };
 
+    const openDetailModal = async (ev) => {
+        setLoadingDetail(true);
+        setSelectedEventDetail(ev); // Show partial data immediately
+        setShowDetailModal(true);
+        try {
+            const fullData = await eventsService.get(ev._id || ev.id);
+            setSelectedEventDetail(fullData);
+        } catch (e) {
+            console.error("Lỗi tải chi tiết:", e);
+        } finally {
+            setLoadingDetail(false);
+        }
+    };
+
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 1000 }}>
 
                 <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
@@ -461,7 +472,7 @@ export default function Events() {
                                                     <button className="btn outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => handleDeleteEvent(ev._id || ev.id)}>Xóa</button>
                                                 </>
                                             )}
-                                            <button className="btn outline" onClick={() => alert("Tính năng xem chi tiết sự kiện đang được phát triển.")}>Xem chi tiết</button>
+                                            <button className="btn outline" onClick={() => openDetailModal(ev)}>Xem chi tiết</button>
                                         </div>
                                     </div>
                                 ))}
@@ -561,10 +572,23 @@ export default function Events() {
                                             title={st.title}
                                         />
                                         <div style={{ padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)' }}>
-                                            <div className="small" style={{ color: "var(--text-light)" }}>
-                                                Chi cành: <strong>{st.branchId?.name || "Chung"}</strong>
+                                            <div className="small" style={{ color: "var(--text-light)", display: "flex", flexDirection: "column", gap: 4 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <Users size={14} color="var(--primary)" />
+                                                    <span>Người phát: <strong>{st.createdBy?.fullName || st.createdBy?.name || "Thành viên"}</strong></span>
+                                                </div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <GitBranch size={14} color="var(--accent)" />
+                                                    <span>
+                                                        {(isAdmin && (me?.role === 'admin' || me?.role === 'super_admin')) && st.branchId?.name?.includes("Chi") && (
+                                                            <><span style={{ color: "var(--primary)", fontWeight: 600 }}>{st.branchId.name.split("Chi")[0].trim() || "Gia tộc"}</span> • </>
+                                                        )}
+                                                        Chi cành: <strong>{st.branchId?.name || "Chung"}</strong>
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="row" style={{ gap: 12 }}>
+                                                <button className="btn outline small" onClick={() => openDetailModal(st)}>Xem chi tiết</button>
                                                 <button className="btn outline small" onClick={() => setActiveTab("events")}>Xem lịch sự kiện</button>
                                                 {isAdmin && (
                                                     <button className="btn outline small" style={{ color: 'var(--danger)' }} onClick={() => handleToggleLive(st._id || st.id, true, st.streamUrl)}>
@@ -812,6 +836,145 @@ export default function Events() {
                 </div>
             )}
 
+            {showDetailModal && selectedEventDetail && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(44, 34, 26, 0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)" }}>
+                    <div className="card" style={{ width: 800, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", borderRadius: 28, padding: 0, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", background: "var(--surface)" }}>
+                        {/* Header Image/Banner */}
+                        <div style={{ height: 160, background: "linear-gradient(135deg, var(--primary), #5a0000)", position: "relative", display: "flex", alignItems: "flex-end", padding: "0 32px 24px" }}>
+                            <div style={{ color: "#fff" }}>
+                                <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{selectedEventDetail.title}</div>
+                                <div style={{ display: "flex", gap: 12, alignItems: "center", opacity: 0.9 }}>
+                                    <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none" }}>{selectedEventDetail.type || "Sự kiện"}</span>
+                                    <span>•</span>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <Calendar size={14} />
+                                        <span>{selectedEventDetail.eventDate ? new Date(selectedEventDetail.eventDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "N/A"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                style={{ position: "absolute", top: 20, right: 20, width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }}
+                                onMouseEnter={(e) => e.target.style.background = "rgba(255,255,255,0.3)"}
+                                onMouseLeave={(e) => e.target.style.background = "rgba(255,255,255,0.2)"}
+                            >
+                                <Plus size={24} style={{ transform: "rotate(45deg)" }} />
+                            </button>
+                        </div>
+
+                        <div style={{ padding: 32 }}>
+                            <div className="row" style={{ alignItems: "flex-start", gap: 32 }}>
+                                <div style={{ flex: 1.5 }}>
+                                    {/* Video Player Section */}
+                                    {selectedEventDetail.isLive && (
+                                        <div style={{ marginBottom: 24, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                                            <StreamingPlayer
+                                                url={selectedEventDetail.streamUrl}
+                                                type={selectedEventDetail.streamType}
+                                                title={selectedEventDetail.title}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="stack" style={{ gap: 24 }}>
+                                        <section>
+                                            <div style={{ fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                                <MapPin size={16} /> Địa điểm tổ chức
+                                            </div>
+                                            <div style={{ fontSize: 16, color: "var(--text-dark)", lineHeight: 1.6, background: "var(--primary-light)", padding: "16px 20px", borderRadius: 12 }}>
+                                                {selectedEventDetail.location || "Chưa cập nhật địa điểm chính thức."}
+                                            </div>
+                                        </section>
+
+                                        <section>
+                                            <div style={{ fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 12 }}>
+                                                Mô tả chi tiết
+                                            </div>
+                                            <div style={{ fontSize: 16, color: "var(--text-dark)", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                                                {selectedEventDetail.description || "Không có mô tả chi tiết cho sự kiện này."}
+                                            </div>
+                                        </section>
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+                                    <div className="stack" style={{ gap: 24 }}>
+                                        {/* Status & Privacy */}
+                                        <div>
+                                            <div style={{ fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 12 }}>Thông tin bổ sung</div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                                <span className={`badge ${selectedEventDetail.privacy === "public" ? "public" : "internal"}`} style={{ textTransform: "capitalize" }}>
+                                                    {selectedEventDetail.privacy === "public" ? "Công khai" : "Nội bộ tộc"}
+                                                </span>
+                                                <span className={`badge ${selectedEventDetail.status === "approved" ? "public" : "sensitive"}`} style={{ textTransform: "capitalize" }}>
+                                                    {selectedEventDetail.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Participants (Only for Admins) */}
+                                        {isAdmin && (
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+                                                    <span>Người tham gia ({selectedEventDetail.participants?.length || 0})</span>
+                                                    {loadingDetail && <div className="spinner-small" />}
+                                                </div>
+                                                <div className="stack" style={{ gap: 8, maxHeight: 300, overflowY: "auto" }}>
+                                                    {selectedEventDetail.participants?.length > 0 ? (
+                                                        selectedEventDetail.participants.map((p, idx) => (
+                                                            <div key={idx} className="row" style={{ gap: 12, padding: "10px 12px", background: "var(--surface-solid)", borderRadius: 10 }}>
+                                                                <div className="avatar" style={{ width: 32, height: 32, fontSize: 12, background: "var(--primary)", color: "#fff" }}>
+                                                                    {(p.userId?.fullName || "U")[0]}
+                                                                </div>
+                                                                <div className="stack" style={{ gap: 2 }}>
+                                                                    <div style={{ fontSize: 14, fontWeight: 600 }}>{p.userId?.fullName || "ID: " + (p.userId?._id || p.userId)}</div>
+                                                                    <div className="small" style={{ opacity: 0.7 }}>{new Date(p.registeredAt).toLocaleDateString('vi-VN')}</div>
+                                                                </div>
+                                                                <div style={{ marginLeft: "auto" }}>
+                                                                    <span className={`badge ${p.status === 'approved' ? 'public' : 'sensitive'}`} style={{ fontSize: 10, padding: "2px 6px" }}>
+                                                                        {p.status === 'approved' ? 'OK' : 'PND'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="small" style={{ fontStyle: "italic", opacity: 0.6 }}>Chưa có thành viên nào đăng ký.</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Organizers */}
+                                        <div>
+                                            <div style={{ fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 12 }}>Người khởi tạo</div>
+                                            <div className="row" style={{ gap: 12 }}>
+                                                <div className="avatar" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                                                    {(selectedEventDetail.createdBy?.fullName || "A")[0]}
+                                                </div>
+                                                <div className="stack">
+                                                    <div style={{ fontSize: 14, fontWeight: 600 }}>{selectedEventDetail.createdBy?.fullName || "Hệ thống"}</div>
+                                                    <div className="small" style={{ opacity: 0.7 }}>{selectedEventDetail.createdBy?.email}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div style={{ padding: "20px 32px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 12, background: "var(--surface-solid)" }}>
+                            <button className="btn outline" onClick={() => setShowDetailModal(false)} style={{ borderRadius: 12, padding: "10px 24px" }}>Đóng</button>
+                            {isAdmin && (
+                                <button className="btn primary" onClick={() => { setShowDetailModal(false); openEditModal(selectedEventDetail); }} style={{ borderRadius: 12, padding: "10px 24px" }}>
+                                    Chỉnh sửa sự kiện
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style>{`
         @keyframes pulse {
           0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
@@ -831,4 +994,3 @@ export default function Events() {
         </>
     );
 }
-

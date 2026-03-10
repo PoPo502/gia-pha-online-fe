@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { useAuth } from "../store/auth.jsx";
 import { Link } from "react-router-dom";
-import { GitBranch, Users, ShieldAlert, Clock, CheckCircle, MessageSquare, Plus } from "lucide-react";
+import { GitBranch, Users, ShieldAlert, Clock, CheckCircle, MessageSquare, Plus, Video } from "lucide-react";
 import { moderationService } from "../services/moderation.service.js";
 import { personsService } from "../services/persons.service.js";
 
@@ -32,7 +32,6 @@ export default function HomeTreeAdmin() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 1200 }}>
                 <div style={{ marginBottom: 32 }}>
                     <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--text-dark)" }}>
@@ -106,8 +105,8 @@ export default function HomeTreeAdmin() {
                                 <Link to="/events" className="btn" style={{ justifyContent: "flex-start", padding: 12, background: "rgba(184, 134, 11, 0.05)", border: "none", boxShadow: "none", color: "var(--accent)" }}>
                                     <Clock size={20} style={{ marginRight: 12 }} /> <b>Lịch sự kiện nhánh</b>
                                 </Link>
-                                <Link to="/media" className="btn" style={{ justifyContent: "flex-start", padding: 12, background: "rgba(45, 106, 79, 0.05)", border: "none", boxShadow: "none", color: "#2d6a4f" }}>
-                                    <CheckCircle size={20} style={{ marginRight: 12 }} /> <b>Quản lý thư viện</b>
+                                <Link to="/events?tab=live" className="btn" style={{ justifyContent: "flex-start", padding: 12, background: "rgba(208, 1, 27, 0.05)", border: "none", boxShadow: "none", color: "var(--red)" }}>
+                                    <Video size={20} style={{ marginRight: 12 }} /> <b>Phát trực tiếp</b>
                                 </Link>
                             </div>
                         </div>

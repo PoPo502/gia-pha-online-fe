@@ -6,6 +6,7 @@ export function RequireAuth({ children }) {
   const { me, loading } = useAuth();
   if (loading) return <div className="container"><div className="card">Loading...</div></div>;
   if (!me) return <Navigate to="/login" replace />;
+
   return children;
 }
 

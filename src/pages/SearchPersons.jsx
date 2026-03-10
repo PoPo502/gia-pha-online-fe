@@ -90,7 +90,6 @@ export default function SearchPersons() {
 
   return (
     <>
-      <Topbar />
       <div className="container" style={{ maxWidth: 1200 }}>
 
         <div style={{ textAlign: "center", marginBottom: 32, marginTop: 16 }}>

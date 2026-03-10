@@ -129,3 +129,25 @@ export function formatError(e) {
   // Tìm kiếm message gốc trong bản đồ dịch, nếu không có thì trả về chính nó hoặc câu mặc định
   return errorMap[rawMsg] || rawMsg || "Đã có lỗi xảy ra. Vui lòng thử lại.";
 }
+
+/** 
+ * Dịch vai trò người dùng sang tiếng Việt 
+ */
+export function translateRole(role) {
+  if (!role) return "Thành viên";
+  const map = {
+    // Global Roles
+    "admin": "Quản trị hệ thống",
+    "super_admin": "Quản trị cao cấp",
+    "editor": "Trưởng chi cành",
+    "tree_admin": "Quản trị gia phả",
+    "member": "Thành viên",
+
+    // Branch Roles
+    "owner": "Chủ sở hữu",
+    "viewer": "Người xem",
+    "moderator": "Người kiểm duyệt"
+  };
+  const key = role.toLowerCase();
+  return map[key] || role.toUpperCase();
+}

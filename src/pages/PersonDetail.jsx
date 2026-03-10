@@ -183,16 +183,12 @@ export default function PersonDetail() {
 
   if (loading) {
     return (
-      <>
-        <Topbar />
-        <div className="container" style={{ padding: 40, textAlign: "center" }}>Đang tải hồ sơ...</div>
-      </>
+      <div className="container" style={{ padding: 40, textAlign: "center" }}>Đang tải hồ sơ...</div>
     );
   }
 
   return (
     <>
-      <Topbar />
       <div className="container" style={{ maxWidth: 1000 }}>
         {err && <div className="card" style={{ color: "var(--danger)", marginBottom: 16 }}>{err}</div>}
 

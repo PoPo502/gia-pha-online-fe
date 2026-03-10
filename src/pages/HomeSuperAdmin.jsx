@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import { useAuth } from "../store/auth.jsx";
 import { Link } from "react-router-dom";
-import { Activity, Users, GitBranch, ShieldAlert, History, Megaphone, Database, Plus, Search } from "lucide-react";
+import { Activity, Users, GitBranch, ShieldAlert, History, Megaphone, Database, Plus, Search, Video } from "lucide-react";
 import { branchesService } from "../services/branches.service.js";
 import { systemService } from "../services/system.service.js";
+import { notificationsService } from "../services/notifications.service.js";
 import { formatError } from "../lib/api.js";
 import { useDebounce } from "../hooks/useDebounce.js";
 
@@ -23,6 +24,12 @@ export default function HomeSuperAdmin() {
     const [newBranchCode, setNewBranchCode] = useState("");
     const [newBranchDesc, setNewBranchDesc] = useState("");
     const [isCreating, setIsCreating] = useState(false);
+
+    // Broadcast Notification Modal
+    const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+    const [broadcastTitle, setBroadcastTitle] = useState("");
+    const [broadcastBody, setBroadcastBody] = useState("");
+    const [isSending, setIsSending] = useState(false);
     useEffect(() => {
         async function loadSystemStats() {
             try {
@@ -91,7 +98,6 @@ export default function HomeSuperAdmin() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 1200 }}>
                 <div style={{ marginBottom: 32, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                     <div>
@@ -188,6 +194,16 @@ export default function HomeSuperAdmin() {
                             </div>
                         </div>
 
+                        <div className="card" style={{ padding: 24, borderRadius: 24, background: "rgba(139, 0, 0, 0.05)", marginBottom: 24, border: "1px dashed var(--primary)" }}>
+                            <h3 style={{ margin: "0 0 12px 0", fontWeight: 800, color: "var(--primary)" }}>
+                                <Video size={20} style={{ marginRight: 8, verticalAlign: "middle" }} /> Quản lý Phát trực tiếp
+                            </h3>
+                            <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>Theo dõi các luồng trực tiếp đang diễn ra từ các chi tộc.</p>
+                            <Link to="/events?tab=live" className="btn outline" style={{ width: "100%", marginTop: 12, borderRadius: 10, fontWeight: 700 }}>
+                                Đi đến Livestream
+                            </Link>
+                        </div>
+
                         <div className="card" style={{ padding: 24, borderRadius: 24, background: "linear-gradient(135deg, #3b0000, #5a0000)", color: "#fff", border: "none" }}>
                             <h3 style={{ margin: "0 0 12px 0", fontWeight: 800, color: "#94a3b8" }}>
                                 <Megaphone size={20} style={{ marginRight: 8, verticalAlign: "middle" }} /> Thông báo hệ thống
@@ -196,7 +212,7 @@ export default function HomeSuperAdmin() {
                             <button
                                 className="btn"
                                 style={{ width: "100%", marginTop: 12, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontWeight: 700, borderRadius: 10 }}
-                                onClick={() => alert("Tính năng gửi thông báo toàn hệ thống đang được phát triển.")}
+                                onClick={() => setShowBroadcastModal(true)}
                             >
                                 Soạn tin nhắn
                             </button>
@@ -204,6 +220,44 @@ export default function HomeSuperAdmin() {
                     </div>
                 </div>
             </div>
+
+            {/* Broadcast Modal */}
+            {showBroadcastModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(44, 34, 26, 0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                    <div className="card" style={{ width: 480, maxWidth: '90vw', animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <div className="title-md" style={{ marginBottom: 16 }}>📢 Gửi thông báo toàn hệ thống</div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!broadcastTitle.trim() || !broadcastBody.trim()) return;
+                            setIsSending(true);
+                            try {
+                                await notificationsService.broadcast({ title: broadcastTitle, body: broadcastBody });
+                                alert('Gửi thông báo thành công!');
+                                setShowBroadcastModal(false);
+                                setBroadcastTitle('');
+                                setBroadcastBody('');
+                            } catch (err) {
+                                alert(formatError(err));
+                            } finally {
+                                setIsSending(false);
+                            }
+                        }} className="stack" style={{ gap: 16 }}>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>Tiêu đề *</label>
+                                <input required className="input" placeholder="VD: Thông báo quan trọng..." value={broadcastTitle} onChange={e => setBroadcastTitle(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="small" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>Nội dung *</label>
+                                <textarea required className="input" rows={5} placeholder="Nhập nội dung thông báo..." value={broadcastBody} onChange={e => setBroadcastBody(e.target.value)} style={{ resize: 'vertical' }} />
+                            </div>
+                            <div className="row" style={{ justifyContent: 'flex-end', gap: 10 }}>
+                                <button type="button" className="btn outline" onClick={() => setShowBroadcastModal(false)}>Hủy</button>
+                                <button type="submit" className="btn primary" disabled={isSending}>{isSending ? 'Đang gửi...' : 'Gửi đến tất cả thành viên'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Create Branch Modal */}
             {showAddModal && (

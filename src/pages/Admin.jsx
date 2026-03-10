@@ -7,7 +7,7 @@ import { branchesService } from "../services/branches.service.js";
 import { usersService } from "../services/users.service.js";
 import { systemService } from "../services/system.service.js";
 import { auditService } from "../services/audit.service.js";
-import { formatError } from "../lib/api.js";
+import { formatError, translateRole } from "../lib/api.js";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("trees"); // trees | users
@@ -77,7 +77,7 @@ export default function Admin() {
 
   async function handleRole(userId, currentRole) {
     const newRole = currentRole === "member" ? "editor" : "member";
-    if (!confirm(`Chuyển vai trò thành ${newRole.toUpperCase()}?`)) return;
+    if (!confirm(`Chuyển vai trò thành ${translateRole(newRole).toUpperCase()}?`)) return;
     try {
       await usersService.updateRole(userId, { role: newRole });
       alert("Cập nhật quyền thành công!");
@@ -142,7 +142,6 @@ export default function Admin() {
 
   return (
     <>
-      <Topbar />
       <div className="container" style={{ maxWidth: 1400 }}>
 
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
@@ -171,7 +170,13 @@ export default function Admin() {
               <div className="row" style={{ gap: 20 }}>
                 <StatCard icon={<GitBranch size={24} />} title="Tổng Cây Gia phả" value={trees.length} color="rgba(184, 134, 11, 0.1)" />
                 <StatCard icon={<UsersIcon size={24} />} title="Tổng Tài khoản" value={users.length} color="rgba(45, 106, 79, 0.1)" />
-                <StatCard icon={<Activity size={24} />} title="Traffic Hệ thống" value="Live" color="rgba(139, 0, 0, 0.05)" />
+                <StatCard
+                  icon={<Activity size={24} />}
+                  title="Traffic Hệ thống"
+                  value="Live"
+                  color="rgba(139, 0, 0, 0.05)"
+                  onClick={() => window.location.href = "/events?tab=live"}
+                />
                 <StatCard
                   icon={<Database size={24} />}
                   title="Health Check"
@@ -276,7 +281,7 @@ export default function Admin() {
                             </td>
                             <td>
                               <span className={`badge ${u.role === "admin" ? "public" : (u.role === "editor" ? "internal" : "")}`}>
-                                {u.role ? u.role.toUpperCase() : "MEMBER"}
+                                {translateRole(u.role).toUpperCase()}
                               </span>
                             </td>
                             <td>

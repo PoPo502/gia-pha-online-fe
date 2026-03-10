@@ -101,7 +101,6 @@ export default function Media() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 1200 }}>
                 <div className="row" style={{ gap: 12 }}>
                     {branches.length > 0 && (

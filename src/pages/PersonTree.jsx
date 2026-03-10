@@ -101,19 +101,80 @@ export default function PersonTree() {
   // const canEdit = me?.role === "TREE_ADMIN" || me?.role === "SUPER_ADMIN";
   const roleStr = String(me?.role || "").toLowerCase();
   const canEdit = roleStr === "admin" || roleStr === "super_admin" || roleStr === "editor" || roleStr === "tree_admin";
-  // Tree Element Ref for Export
+  // Refs
   const treeRef = useRef(null);
+  const treeContainerRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const [exporting, setExporting] = useState(false);
 
   // Context Menu State
   const [ctxMenu, setCtxMenu] = useState(null);
 
-  // Zoom State
-  const [zoom, setZoom] = useState(1.0);
+  // ── Figma-style Canvas State ──
+  const [zoom, setZoom] = useState(0.7);
+  const [translate, setTranslate] = useState({ x: 60, y: 40 });
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2.0));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
-  const handleZoomReset = () => setZoom(1.0);
+  // Refs to avoid stale closures inside native event listeners
+  const zoomRef = useRef(0.7);
+  const translateRef = useRef({ x: 60, y: 40 });
+  const dragRef = useRef(null); // { startMouseX, startMouseY, startTx, startTy }
+
+  const applyZoom = (z) => { zoomRef.current = z; setZoom(z); };
+  const applyTranslate = (t) => { translateRef.current = t; setTranslate(t); };
+
+  const handleZoomReset = () => { applyZoom(1.0); applyTranslate({ x: 60, y: 40 }); };
+
+  // Drag-to-pan handlers
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return;
+    dragRef.current = {
+      startMouseX: e.clientX, startMouseY: e.clientY,
+      startTx: translateRef.current.x, startTy: translateRef.current.y
+    };
+    setIsDragging(true);
+  };
+  const handleMouseMove = (e) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startMouseX;
+    const dy = e.clientY - dragRef.current.startMouseY;
+    applyTranslate({ x: dragRef.current.startTx + dx, y: dragRef.current.startTy + dy });
+  };
+  const handleMouseUp = () => { dragRef.current = null; setIsDragging(false); };
+
+  // Non-passive wheel: Ctrl → zoom-to-cursor, no Ctrl → pan
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.ctrlKey) {
+        // Zoom towards mouse cursor
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const oldZoom = zoomRef.current;
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        const newZoom = Math.min(Math.max(oldZoom * factor, 0.08), 4.0);
+        const tx = translateRef.current.x;
+        const ty = translateRef.current.y;
+        applyZoom(newZoom);
+        applyTranslate({
+          x: mouseX - (mouseX - tx) * (newZoom / oldZoom),
+          y: mouseY - (mouseY - ty) * (newZoom / oldZoom)
+        });
+      } else {
+        // Pan with scroll
+        applyTranslate({
+          x: translateRef.current.x - (e.shiftKey ? e.deltaY : e.deltaX) * 0.8,
+          y: translateRef.current.y - (e.shiftKey ? 0 : e.deltaY) * 0.8
+        });
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Add Person Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -152,6 +213,12 @@ export default function PersonTree() {
   }
 
   useEffect(() => { load(); }, [id]);
+
+  // Lock body scroll while on this full-screen tree page
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = () => setCtxMenu(null);
@@ -278,8 +345,7 @@ export default function PersonTree() {
 
   return (
     <>
-      <Topbar />
-      <div className="container" style={{ maxWidth: 1400 }}>
+      <div className="container" style={{ maxWidth: 1400, overflow: 'hidden' }}>
         <div className="card">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
             <div>
@@ -379,69 +445,77 @@ export default function PersonTree() {
 
           {err && <div style={{ color: "var(--danger)", marginTop: 16 }}>{err}</div>}
 
-          <div style={{ position: "relative", marginTop: 24, background: "var(--surface-solid)", padding: 24, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", minHeight: 400, overflow: "auto" }}>
-            {loading && !tree && <div className="small" style={{ textAlign: "center", padding: 40 }}>Đang dựng cây gia phả...</div>}
+          <div
+            ref={scrollContainerRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{
+              position: 'relative',
+              marginTop: 16,
+              height: 'calc(100vh - 235px)',
+              background: 'var(--surface-solid)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              userSelect: 'none'
+            }}
+          >
+            {loading && !tree && <div className="small" style={{ textAlign: 'center', padding: 40, pointerEvents: 'none' }}>Đang dựng cây gia phả...</div>}
 
-            <div className="zoom-controls">
-              <button className="zoom-btn" onClick={handleZoomIn} title="Phóng to">+</button>
-              <button className="zoom-btn" onClick={handleZoomReset} title="Mặc định">1:1</button>
-              <button className="zoom-btn" onClick={handleZoomOut} title="Thu nhỏ">-</button>
+            {/* Zoom indicator – click to reset */}
+            <div
+              className="zoom-controls"
+              title="Click để reset về 100%"
+              onClick={handleZoomReset}
+              style={{ cursor: 'pointer', zIndex: 200, pointerEvents: 'all' }}
+            >
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>Ctrl+Cuộn<br />Kéo-Pan</span>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--primary)', marginTop: 2 }}>{Math.round(zoom * 100)}%</div>
             </div>
 
+            {/* Siblings / Parents navigation – overlaid at top of canvas */}
             {tree && tree.siblings && tree.siblings.length > 0 && (
-              <div style={{ padding: "12px 24px", background: "rgba(246, 145, 19, 0.1)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="small" style={{ fontWeight: 600, color: "var(--accent)" }}>Anh/Chị/Em ruột:</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 100, padding: '8px 16px', background: 'rgba(246, 145, 19, 0.1)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'all' }} onMouseDown={e => e.stopPropagation()}>
+                <div className="small" style={{ fontWeight: 600, color: 'var(--accent)' }}>Anh/Chị/Em:</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {tree.siblings.map(sib => (
-                    <div key={sib._id || sib.id} className="badge internal" style={{ cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)" }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>
-                      👥 {sib.fullName || sib.name}
-                    </div>
+                    <div key={sib._id || sib.id} className="badge internal" style={{ cursor: 'pointer', background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={() => nav(`/persons/${sib._id || sib.id}/tree`)}>👥 {sib.fullName || sib.name}</div>
                   ))}
                 </div>
               </div>
             )}
             {tree && tree.parents && tree.parents.length > 0 && (
-              <div style={{ padding: "12px 24px", background: "rgba(184, 134, 11, 0.08)", borderRadius: 12, marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="small" style={{ fontWeight: 600, color: "var(--text-dark)" }}>Chuyển Gốc Cây lên Cha/Mẹ:</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {tree.parents.map(parent => (
-                    <div
-                      key={parent._id || parent.id}
-                      className="badge"
-                      style={{ cursor: "pointer", background: "var(--surface)", color: "var(--primary)", border: "1px solid var(--primary)", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px" }}
-                      onClick={() => nav(`/persons/${parent._id || parent.id}/tree`)}
-                    >
-                      Xem từ {parent.fullName || parent.name}
-                    </div>
+              <div style={{ position: 'absolute', top: tree?.siblings?.length > 0 ? 60 : 12, left: 12, zIndex: 100, padding: '8px 16px', background: 'rgba(184, 134, 11, 0.08)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'all' }} onMouseDown={e => e.stopPropagation()}>
+                <div className="small" style={{ fontWeight: 600 }}>Lên Cha/Mẹ:</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {tree.parents.map(p => (
+                    <div key={p._id || p.id} className="badge" style={{ cursor: 'pointer', background: 'var(--surface)', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '4px 10px' }} onClick={() => nav(`/persons/${p._id || p.id}/tree`)}>↑ {p.fullName || p.name}</div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* BẮT ĐẦU: ĐOẠN CODE VẼ CÂY ĐÃ SỬA LẠI */}
+            {/* Canvas content – panned and zoomed */}
             {tree && (
               <div
-                className="family-tree-container"
                 ref={treeRef}
                 style={{
-                  padding: 40,
-                  minWidth: "100%",
-                  display: "inline-block",
-                  textAlign: "center"
+                  position: 'absolute',
+                  top: 0, left: 0,
+                  transformOrigin: '0 0',
+                  transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoom})`,
+                  transition: isDragging ? 'none' : 'transform 0.08s ease-out',
+                  pointerEvents: isDragging ? 'none' : 'auto'
                 }}
               >
-                <div className="family-tree" style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                  transition: "transform 0.2s ease-out"
-                }}>
-                  <ul>
-                    <Node node={tree} onNodeClick={handleNodeClick} />
-                  </ul>
+                <div className="family-tree">
+                  <ul><Node node={tree} onNodeClick={handleNodeClick} /></ul>
                 </div>
               </div>
             )}
-            {/* KẾT THÚC: ĐOẠN CODE VẼ CÂY */}
 
           </div>
         </div>

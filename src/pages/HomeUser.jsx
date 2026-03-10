@@ -209,7 +209,6 @@ export default function HomeUser() {
 
     return (
         <>
-            <Topbar />
             <div className="social-layout">
                 {/* ... existing sidebar ... */}
                 <aside style={{ width: 280, flexShrink: 0 }}>

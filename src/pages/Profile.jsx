@@ -68,7 +68,6 @@ export default function Profile() {
 
     return (
         <>
-            <Topbar />
             <div className="container" style={{ maxWidth: 800 }}>
                 <div className="title-md" style={{ marginBottom: 8 }}>Cài đặt tài khoản</div>
                 <div className="small" style={{ color: "var(--text-light)", marginBottom: 32 }}>

@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 import { branchesService } from "../services/branches.service.js";
 import { useAuth } from "../store/auth.jsx";
-import { formatError } from "../lib/api.js";
+import { formatError, translateRole } from "../lib/api.js";
 
 export default function PersonsList() {
   const { me } = useAuth();
@@ -82,7 +82,6 @@ export default function PersonsList() {
 
   return (
     <>
-      <Topbar />
       <div className="container">
         <div className="card">
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 24, alignItems: "flex-end" }}>
@@ -158,9 +157,9 @@ export default function PersonsList() {
                       <td style={{ fontWeight: 500 }}>{name}</td>
                       <td>
                         {p.privacy === "admin" ? (
-                          <span className="badge public">Branch Admin</span>
+                          <span className="badge public">Quản trị viên chi cành</span>
                         ) : p.privacy ? (
-                          <span className={`badge ${p.privacy.toLowerCase()}`}>{p.privacy}</span>
+                          <span className={`badge ${p.privacy.toLowerCase()}`}>{p.privacy === 'internal' ? 'Nội bộ' : (p.privacy === 'public' ? 'Công khai' : (p.privacy === 'sensitive' ? 'Nhạy cảm' : p.privacy))}</span>
                         ) : "-"}
                       </td>
                       <td style={{ textAlign: "right" }}>
