@@ -7,8 +7,12 @@ export const mediaService = {
     });
     return unwrap(res);
   },
-  async list() {
-    const res = await api.get("/medias");
+  async list(params = {}) {
+    const res = await api.get("/medias", { params });
+    return unwrap(res);
+  },
+  async updateStatus(id, status) {
+    const res = await api.put(`/media/${id}/status`, { status });
     return unwrap(res);
   },
   async get(id) {

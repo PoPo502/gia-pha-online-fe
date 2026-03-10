@@ -83,16 +83,21 @@ body {
   border-image-slice: 400 120 120 120 fill;
   border-image-width: 400px 120px 120px 120px;
   border-image-repeat: stretch round;
-  /* Ngăn chặn biến dạng họa tiết viền sớ khi trang quá dài */
-  padding: 360px 120px 120px 120px;
   /* Đảm bảo nội dung chính bắt đầu từ vùng giấy trắng tinh khôi */
   box-sizing: border-box;
+  border-style: solid;
+  border-width: 200px 120px 120px 120px;
+  /* Giảm thêm 80px (~2cm) nữa, tổng cộng đẩy lên 5cm */
+  border-color: transparent;
+  padding: 0;
+  margin-top: 0px;
+  /* Loại bỏ margin-top vì Topbar không còn fixed ở trên cùng */
 }
 
 .scroll-main-content {
   width: 100%;
   position: relative;
-  z-index: 10;
+  /* Đã gỡ bỏ z-index để không tạo stacking context mới, giúp các Modal/Popup thoát ra ngoài và hiển thị trên Topbar */
 }
 
 body::before {
@@ -331,16 +336,19 @@ hr {
 .topbar {
   background: transparent;
   border-bottom: none;
-  position: absolute;
-  /* Đưa về vị trí absolute cố định trên sớ */
-  top: 240px;
-  /* Giới hạn trong vùng giấy trắng (lòng sớ), không tràn ra viền vàng */
-  left: 120px;
-  right: 120px;
-  z-index: 100;
-  width: auto;
+  position: sticky;
+  /* Dính vào đỉnh màn hình khi cuộn qua phần đầu rồng */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  /* Tăng z-index để dropdown hiển thị trên nội dung chính, nhưng vẫn dưới các Modal vì Modal không bị trap bởi content nữa */
+  width: 100%;
   display: flex;
   justify-content: center;
+  padding: 10px 0;
+  margin-bottom: 0px;
+  /* Đẩy sát nội dung lên trên */
 }
 
 .topbar-inner {
@@ -349,14 +357,15 @@ hr {
   justify-content: space-between;
   gap: 16px;
   padding: 12px 32px;
-  /* Thu gọn padding để dải Taskbar nhìn thanh thoát hơn */
   width: 100%;
   max-width: 1200px;
-  background: rgba(255, 252, 240, 0.7);
+  background: rgba(255, 252, 240, 0.85);
+  /* Tăng độ đậm để dễ đọc trên nền giấy */
   backdrop-filter: blur(8px);
-  border-bottom: 2px double var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+  /* Viền mỏng để giống thẻ bài */
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .nav {

@@ -48,7 +48,12 @@ export function AuthProvider({ children }) {
         const data = await authService.login(body);
         // kỳ vọng data chứa accessToken
         if (data?.accessToken) tokenStore.setAccessToken(data.accessToken);
-        await bootstrap();
+
+        // Nếu isFirstLogin -> KHÔNG gọi bootstrap() vì interceptor có thể xóa token 
+        // khi refresh token cookie chưa sẵn sàng. Token sẽ được dùng trực tiếp.
+        if (!data?.isFirstLogin && !data?.user?.isFirstLogin) {
+          await bootstrap();
+        }
         return data;
       },
       async register(payload) {
